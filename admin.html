@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bs-primary: #1b396a; --bg-light: #f4f7fc; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-light); color: #2d3748; }
+        .card { border: none; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border-radius: 0.5rem; }
+        .btn-primary { background-color: var(--bs-primary); border-color: var(--bs-primary); }
+        .btn-primary:hover { background-color: #142a4f; border-color: #142a4f; }
+        .stat-card { border-left: 4px solid var(--bs-primary); }
+    </style>
+</head>
+<body class="bg-light" onload="cargarDatosAdmin()">
+
+    <nav class="navbar navbar-dark shadow-sm py-2" style="background-color: #1b396a !important;">
+        <div class="container-fluid px-4">
+            <span class="navbar-brand d-flex align-items-center gap-2 fs-6 fw-bold">
+                <i class="fa-solid fa-chart-line"></i> Panel de Administración & Dashboard - Tutorías
+            </span>
+            <a href="/registro.html" target="_blank" class="btn btn-sm btn-light fw-semibold">
+                <i class="fa-solid fa-external-link-alt me-1"></i> Abrir Formulario de Registro
+            </a>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-3 my-3">
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <div class="card stat-card p-3 bg-white">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-muted mb-0 text-uppercase small fw-bold">Total Alumnos</p>
+                            <h4 class="fw-bold mb-0 text-primary" id="statTotalAlumnos">0</h4>
+                        </div>
+                        <div class="bg-light p-2 rounded-circle text-primary">
+                            <i class="fa-solid fa-users fa-lg"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card stat-card p-3 bg-white" style="border-left-color: #0d9488;">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-muted mb-0 text-uppercase small fw-bold">Tutores Activos</p>
+                            <h4 class="fw-bold mb-0" id="statTotalTutores">0</h4>
+                        </div>
+                        <div class="bg-light p-2 rounded-circle text-success">
+                            <i class="fa-solid fa-chalkboard-user fa-lg"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card stat-card p-3 bg-white" style="border-left-color: #f59e0b;">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-muted mb-0 text-uppercase small fw-bold">Canalizados</p>
+                            <h4 class="fw-bold mb-0 text-warning" id="statTotalCanalizados">0</h4>
+                        </div>
+                        <div class="bg-light p-2 rounded-circle text-warning">
+                            <i class="fa-solid fa-heart-pulse fa-lg"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-3 mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="fw-bold text-primary mb-0"><i class="fa-solid fa-users-gear me-1"></i> Gestión de Profesores / Tutores</h6>
+                <button class="btn btn-sm btn-primary py-1 px-2" data-bs-toggle="modal" data-bs-target="#modalNuevoTutor">
+                    <i class="fa-solid fa-user-plus me-1"></i> Agregar Tutor
+                </button>
+            </div>
+            <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+                <table class="table table-hover align-middle table-sm small mb-0">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th>Nombre del Profesor</th>
+                            <th>Estado</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaTutores"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card p-3">
+            <h6 class="fw-bold text-primary mb-2"><i class="fa-solid fa-table-list me-1"></i> Historial de Tutorías Registradas</h6>
+            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+                <table class="table table-striped table-hover align-middle small mb-0">
+                    <thead class="table-dark sticky-top">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Alumno</th>
+                            <th>Carrera</th>
+                            <th>Grupo</th>
+                            <th>Turno</th>
+                            <th>Tutor</th>
+                            <th>Motivo</th>
+                            <th>Psicopedagogía</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaTutorias"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Agregar Nuevo Tutor -->
+    <div class="modal fade" id="modalNuevoTutor" tabindex="-1">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white py-2">
+                    <h6 class="modal-title"><i class="fa-solid fa-user-plus me-1"></i> Registrar Profesor</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formNuevoTutor">
+                        <div class="mb-2">
+                            <label class="form-label fw-semibold small">Nombre Completo:</label>
+                            <input type="text" class="form-control form-control-sm" id="nombreNuevoTutor" required placeholder="Ej. DRA. MARIA LOPEZ">
+                        </div>
+                        <div class="text-end">
+                            <button type="submit" class="btn btn-sm btn-primary">Guardar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        async function cargarDatosAdmin() {
+            try {
+                const resTutorias = await fetch('/api/tutorias');
+                const tutorias = await resTutorias.json();
+
+                document.getElementById('statTotalAlumnos').innerText = tutorias.length;
+                const canalizados = tutorias.filter(t => t["Canalización a psicopedagogía"] === 'Sí').length;
+                document.getElementById('statTotalCanalizados').innerText = canalizados;
+
+                const tbodyTutorias = document.getElementById('tablaTutorias');
+                tbodyTutorias.innerHTML = '';
+                tutorias.forEach(t => {
+                    tbodyTutorias.innerHTML += `
+                        <tr>
+                            <td>${t.Fecha || ''}</td>
+                            <td>${t["Nombre del alumno"] || ''}</td>
+                            <td>${t.Carrera || ''}</td>
+                            <td>${t.Grupo || ''}</td>
+                            <td>${t.Turno || ''}</td>
+                            <td>${t["Tutor que atiende"] || ''}</td>
+                            <td>${t["Motivos de la tutoría"] || ''}</td>
+                            <td><span class="badge ${t["Canalización a psicopedagogía"] === 'Sí' ? 'bg-warning text-dark' : 'bg-secondary'}">${t["Canalización a psicopedagogía"] || 'No'}</span></td>
+                        </tr>
+                    `;
+                });
+
+                const resTutores = await fetch('/api/tutores');
+                const tutores = await resTutores.json();
+                document.getElementById('statTotalTutores').innerText = tutores.length;
+
+                const tbodyTutores = document.getElementById('tablaTutores');
+                tbodyTutores.innerHTML = '';
+                tutores.forEach(t => {
+                    tbodyTutores.innerHTML += `
+                        <tr>
+                            <td class="fw-semibold">${t}</td>
+                            <td><span class="badge bg-success">Activo</span></td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-danger py-0 px-1" onclick="eliminarTutor('${t}')">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (err) { console.error('Error al cargar datos del admin:', err); }
+        }
+
+        document.getElementById('formNuevoTutor').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nombre = document.getElementById('nombreNuevoTutor').value.trim();
+            const res = await fetch('/api/tutores', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nombre })
+            });
+
+            if (res.ok) {
+                alert('Tutor agregado correctamente');
+                document.getElementById('nombreNuevoTutor').value = '';
+                bootstrap.Modal.getInstance(document.getElementById('modalNuevoTutor')).hide();
+                cargarDatosAdmin();
+            } else { alert('Error al agregar el tutor'); }
+        });
+
+        async function eliminarTutor(nombre) {
+            if (confirm(`¿Está seguro de eliminar a ${nombre} del sistema?`)) {
+                const res = await fetch('/api/tutores', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nombre })
+                });
+
+                if (res.ok) {
+                    cargarDatosAdmin();
+                } else { alert('Error al eliminar tutor'); }
+            }
+        }
+    </script>
+</body>
+</html>
