@@ -2,14 +2,16 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const XLSX = require('xlsx');
 const fs = require('fs');
+const path = require('path'); // Módulo imprescindible para rutas en Linux
 
 const app = express();
 app.use(bodyParser.json());
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname)));
 
-const EXCEL_FILE = 'registro_tutorias.xlsx';
-const TUTORES_FILE = 'tutores.json';
+const EXCEL_FILE = path.join(__dirname, 'registro_tutorias.xlsx');
+const TUTORES_FILE = path.join(__dirname, 'tutores.json');
 
+// Inicializar archivo de tutores si no existe
 if (!fs.existsSync(TUTORES_FILE)) {
     const tutoresIniciales = [
         "ANDREA", "CRISTOBAL", "ERIK", "JOSÉ LUIS", "JUAN CARLOS", "MIGUEL", "XIMENA"
@@ -17,10 +19,21 @@ if (!fs.existsSync(TUTORES_FILE)) {
     fs.writeFileSync(TUTORES_FILE, JSON.stringify(tutoresIniciales, null, 2));
 }
 
+// Ruta Principal -> Formulario de Registro
 app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/registro.html');
+    res.sendFile(path.join(__dirname, 'registro.html'), (err) => {
+        if (err) res.status(500).send("Error al cargar registro.html. Verifique que el nombre del archivo sea exacto (minúsculas).");
+    });
 });
 
+// Ruta Panel Administrativo -> Dashboard
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'admin.html'), (err) => {
+        if (err) res.status(500).send("Error al cargar admin.html. Verifique el nombre del archivo en el repositorio.");
+    });
+});
+
+// API Endpoints
 app.get('/api/tutores', (req, res) => {
     try {
         const data = fs.readFileSync(TUTORES_FILE, 'utf8');
@@ -122,5 +135,5 @@ app.post('/api/tutorias', (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Servidor en ejecución en http://localhost:${PORT}`);
+    console.log(`Servidor activo en el puerto ${PORT}`);
 });
