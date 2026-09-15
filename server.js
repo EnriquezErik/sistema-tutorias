@@ -1,145 +1,73 @@
 const express = require('express');
-const bodyParser = require('body-parser');
-const XLSX = require('xlsx');
-const fs = require('fs');
+const cors = require('cors');
+const sql = require('mssql');
+require('dotenv').config();
 
 const app = express();
-app.use(bodyParser.json());
-app.use(express.static(__dirname));
+app.use(cors());
+app.use(express.json());
+app.use(express.static('.')); // Sirve archivos estáticos (html, js, css)
 
-const EXCEL_FILE = 'registro_tutorias.xlsx';
-const TUTORES_FILE = 'tutores.json';
-
-if (!fs.existsSync(TUTORES_FILE)) {
-    const tutoresIniciales = [
-        "ANDREA", "CRISTOBAL", "ERIK", "JOSÉ LUIS", "JUAN CARLOS", "MIGUEL", "XIMENA"
-    ];
-    fs.writeFileSync(TUTORES_FILE, JSON.stringify(tutoresIniciales, null, 2));
-}
-
-app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/registro.html');
-});
-
-app.get('/api/tutores', (req, res) => {
-    try {
-        const data = fs.readFileSync(TUTORES_FILE, 'utf8');
-        res.json(JSON.parse(data));
-    } catch (err) {
-        res.status(500).json({ error: 'Error al leer tutores' });
+// Configuración de conexión a SQL Server
+const dbConfig = {
+    user: process.env.DB_USER || 'tu_usuario',
+    password: process.env.DB_PASSWORD || 'tu_contraseña',
+    server: process.env.DB_SERVER || 'tu_servidor.database.windows.net',
+    database: process.env.DB_NAME || 'tu_base_datos',
+    options: {
+        encrypt: true,
+        trustServerCertificate: true
     }
-});
+};
 
-app.post('/api/tutores', (req, res) => {
-    const { nombre } = req.body;
-    if (!nombre) return res.status(400).json({ error: 'Nombre requerido' });
-
-    try {
-        const tutores = JSON.parse(fs.readFileSync(TUTORES_FILE, 'utf8'));
-        const nombreMayus = nombre.toUpperCase();
-        if (!tutores.includes(nombreMayus)) {
-            tutores.push(nombreMayus);
-            fs.writeFileSync(TUTORES_FILE, JSON.stringify(tutores, null, 2));
-        }
-        res.sendStatus(200);
-    } catch (err) {
-        res.status(500).json({ error: 'Error al guardar tutor' });
-    }
-});
-
-app.delete('/api/tutores', (req, res) => {
-    const { nombre } = req.body;
-    try {
-        let tutores = JSON.parse(fs.readFileSync(TUTORES_FILE, 'utf8'));
-        tutores = tutores.filter(t => t !== nombre);
-        fs.writeFileSync(TUTORES_FILE, JSON.stringify(tutores, null, 2));
-        res.sendStatus(200);
-    } catch (err) {
-        res.status(500).json({ error: 'Error al eliminar tutor' });
-    }
-});
-
-app.get('/api/tutorias', (req, res) => {
-    try {
-        if (!fs.existsSync(EXCEL_FILE)) {
-            return res.json([]);
-        }
-        const workbook = XLSX.readFile(EXCEL_FILE);
-        const worksheet = workbook.Sheets['Tutorias'];
-        const rows = worksheet ? XLSX.utils.sheet_to_json(worksheet) : [];
-        res.json(rows);
-    } catch (err) {
-        res.status(500).json({ error: 'Error al leer el archivo de Excel' });
-    }
-});
-
+// 📌 API 1: Obtener datos de alumno por Matrícula
 app.get('/api/alumnos/:matricula', async (req, res) => {
     try {
         const { matricula } = req.params;
-        // Consulta a tu base de datos SQL Server
-        const pool = await sql.connect(dbConfig);
-        const resultado = await pool.request()
-            .input('mat', sql.VarChar, matricula)
-            .query('SELECT * FROM Alumnos WHERE matricula = @mat');
+        let pool = await sql.connect(dbConfig);
+        let result = await pool.request()
+            .input('matricula', sql.VarChar, matricula)
+            .query('SELECT matricula, nombre, sexo, carrera, grupo FROM Alumnos WHERE matricula = @matricula');
 
-        if (resultado.recordset.length > 0) {
-            res.json({ encontrado: true, alumno: resultado.recordset[0] });
+        if (result.recordset.length > 0) {
+            res.json({ success: true, alumno: result.recordset[0] });
         } else {
-            res.json({ encontrado: false });
+            res.status(404).json({ success: false, message: 'Alumno no encontrado en el catálogo.' });
         }
     } catch (error) {
-        res.status(500).json({ error: 'Error al consultar la base de datos' });
+        console.error("Error al buscar alumno:", error);
+        res.status(500).json({ success: false, message: 'Error interno del servidor.' });
     }
 });
 
-app.post('/api/tutorias', (req, res) => {
-    const data = req.body;
-    let workbook;
-    let worksheet;
+// 📌 API 2: Registrar una nueva sesión de Tutoría
+app.post('/api/tutorias', async (req, res) => {
+    try {
+        const { profesor, matricula, nombre, sexo, carrera, grupo, turno, motivos, canalizacion, observaciones } = req.body;
 
-    if (fs.existsSync(EXCEL_FILE)) {
-        workbook = XLSX.readFile(EXCEL_FILE);
-        worksheet = workbook.Sheets['Tutorias'];
-    } else {
-        workbook = XLSX.utils.book_new();
-        worksheet = XLSX.utils.json_to_sheet([]);
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Tutorias');
+        let pool = await sql.connect(dbConfig);
+        await pool.request()
+            .input('profesor', sql.VarChar, profesor)
+            .input('matricula', sql.VarChar, matricula)
+            .input('nombre', sql.VarChar, nombre)
+            .input('sexo', sql.VarChar, sexo)
+            .input('carrera', sql.VarChar, carrera)
+            .input('grupo', sql.VarChar, grupo)
+            .input('turno', sql.VarChar, turno)
+            .input('motivos', sql.VarChar, motivos)
+            .input('canalizacion', sql.VarChar, canalizacion)
+            .input('observaciones', sql.Text, observaciones)
+            .query(`INSERT INTO Tutorias (profesor, matricula, nombre_alumno, sexo, carrera, grupo, turno, motivos, canalizacion, observaciones)
+                    VALUES (@profesor, @matricula, @nombre, @sexo, @carrera, @grupo, @turno, @motivos, @canalizacion, @observaciones)`);
+
+        res.json({ success: true, message: '¡Tutoría registrada exitosamente!' });
+    } catch (error) {
+        console.error("Error al guardar tutoría:", error);
+        res.status(500).json({ success: false, message: 'No se pudo guardar el registro.' });
     }
-
-    // Generar fecha y hora actual automáticamente
-    const ahora = new Date();
-    const fechaHoraAutomatica = ahora.toLocaleString('es-MX', {
-        timeZone: 'America/Mexico_City',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    });
-
-    const rows = worksheet ? XLSX.utils.sheet_to_json(worksheet) : [];
-    rows.push({
-        "Fecha y Hora": fechaHoraAutomatica,
-        "Nombre del alumno": data.nombre,
-        Sexo: data.sexo,
-        Carrera: data.carrera,
-        Grupo: data.grupo,
-        Turno: data.turno,
-        "Tutor que atiende": data.tutor,
-        "Motivos de la tutoría": data.motivo,
-        "Canalización a psicopedagogía": data.canalizacion,
-        Comentarios: data.comentarios
-    });
-
-    const newWorksheet = XLSX.utils.json_to_sheet(rows);
-    workbook.Sheets['Tutorias'] = newWorksheet;
-    XLSX.writeFile(workbook, EXCEL_FILE);
-
-    res.sendStatus(200);
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Servidor en ejecución en http://localhost:${PORT}`);
+    console.log(`Servidor de Tutorías ejecutándose en http://localhost:${PORT}`);
 });
