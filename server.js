@@ -78,7 +78,7 @@ app.post('/api/registro', async (req, res) => {
 // Ruta pública: Login de Administrador
 app.post('/api/login', async (req, res) => {
   const { usuario, password } = req.body;
-  if (usuario === process.env.ADMIN && password === process.env.12345) {
+  if (usuario === process.env.ADMIN_USER && password === process.env.ADMIN_PASS) {
     const token = jwt.sign({ usuario }, JWT_SECRET, { expiresIn: '8h' });
     return res.json({ token });
   }
