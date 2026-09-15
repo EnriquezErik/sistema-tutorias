@@ -73,6 +73,25 @@ app.get('/api/tutorias', (req, res) => {
     }
 });
 
+app.get('/api/alumnos/:matricula', async (req, res) => {
+    try {
+        const { matricula } = req.params;
+        // Consulta a tu base de datos SQL Server
+        const pool = await sql.connect(dbConfig);
+        const resultado = await pool.request()
+            .input('mat', sql.VarChar, matricula)
+            .query('SELECT * FROM Alumnos WHERE matricula = @mat');
+
+        if (resultado.recordset.length > 0) {
+            res.json({ encontrado: true, alumno: resultado.recordset[0] });
+        } else {
+            res.json({ encontrado: false });
+        }
+    } catch (error) {
+        res.status(500).json({ error: 'Error al consultar la base de datos' });
+    }
+});
+
 app.post('/api/tutorias', (req, res) => {
     const data = req.body;
     let workbook;
