@@ -8,7 +8,7 @@
     <div class="col-md-7">
         <div class="d-flex align-items-center">
             <div class="badge bg-primary text-white p-2 me-2 fs-6 fw-bold" style="background-color: #0d1b2a !important;">HUMANIDADES</div>
-            <div class="text-muted" style="font-size: 0.75rem; line-height: 1.1;">
+            <div class="text-muted" style="font-size: 0.99rem; line-height: 1.1;">
                 Bilingual<br>International<br>Sustainable<br>University
             </div>
         </div>
@@ -39,14 +39,12 @@
             <span class="badge bg-light text-dark px-2 py-1 fw-semibold small">Periodo: May-Ago 2026</span>
         </div>
     </nav>
-
     <div class="container-fluid px-3 my-3">
         <div class="card p-3 p-lg-4 mx-auto" style="max-width: 1400px;">
             <div class="text-center mb-3">
                 <h4 class="fw-bold text-primary mb-1">STUDENT COUNSELING REGISTRATION</h4>
                 <p class="text-muted small mb-0">Complete los datos correspondientes a la sesión de asesoría impartida.</p>
             </div>
-
             <form id="tutorForm">
                 <div class="row g-2">
                     <div class="col-md-4">
@@ -56,21 +54,21 @@
                         </select>
                     </div>
 
-                     <!-- CAMPO DE MATRÍCULA (NUEVA MEJORA) -->
-                    <div class="mb-3">
-                        <label for="input-matricula" class="form-label" style="font-weight: bold; color: #333;">Matrícula del Estudiante:</label>
-                        <input type="text" id="input-matricula" class="form-control" placeholder="Ingresa tu matrícula y sal de la casilla" style="padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
-                        <small style="color: #6c757d; font-size: 12px; display: block; margin-top: 4px;">Al escribir tu matrícula, tus datos se completarán automáticamente si ya estás registrado.</small>
+                    <!-- CAMPO DE MATRÍCULA (NUEVA MEJORA) -->
+                    <div class="col-md-4 mb-3">
+                        <label for="input-matricula" class="form-label fw-semibold small mb-1">Matrícula:</label>
+                        <input type="text" id="input-matricula" class="form-control form-control-sm" placeholder="Ingresa matrícula">
+                        <small class="text-muted d-block mt-1" style="font-size: 11px;">Presiona Tab o sal de la casilla para autocompletar.</small>
                     </div>
 
                     <div class="col-md-8">
                         <label class="form-label fw-semibold small mb-1">Nombre del alumno:</label>
-                        <input type="text" class="form-control form-control-sm" id="nombre" required placeholder="Nombre completo del estudiante">
+                        <input type="text" class="form-control form-control-sm" id="nombre-alumno" required placeholder="Nombre completo del estudiante">
                     </div>
 
                     <div class="col-md-3">
                         <label class="form-label fw-semibold small mb-1">Sexo:</label>
-                        <select class="form-select form-select-sm" id="sexo" required>
+                        <select class="form-select form-select-sm" id="sexo-alumno" required>
                             <option value="">Elegir opción</option>
                             <option value="Hombre">Hombre</option>
                             <option value="Mujer">Mujer</option>
@@ -79,7 +77,7 @@
 
                     <div class="col-md-3">
                         <label class="form-label fw-semibold small mb-1">Carrera:</label>
-                        <select class="form-select form-select-sm" id="carrera" required>
+                        <select class="form-select form-select-sm" id="carrera-alumno" required>
                             <option value="">Elegir opción</option>
                             <option value="IAEV">IAEV</option>
                             <option value="ICM">ICM</option>
@@ -181,7 +179,8 @@
     </script>
     <footer class="footer-derechos no-print">
     <hr class="linea-separadora">
-    <p>© 2026 Politécnica Santa Rosa. Todos los derechos reservados (Versión 1.0.0).</p>
+    <p>© 2026 Politécnica Santa Rosa. Todos los derechos reservados.</p>
+    <p class="version-app">Versión 1.0.0</p>
 </footer>
 </body>
 </html>
