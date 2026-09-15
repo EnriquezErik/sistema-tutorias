@@ -1,139 +1,126 @@
 const express = require('express');
-const bodyParser = require('body-parser');
-const XLSX = require('xlsx');
-const fs = require('fs');
-const path = require('path'); // Módulo imprescindible para rutas en Linux
+const { Pool } = require('pg');
+const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
+const path = require('path');
+require('dotenv').config();
 
 const app = express();
-app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname)));
+app.use(express.json());
+app.use(express.static(path.join(__dirname, '/')));
 
-const EXCEL_FILE = path.join(__dirname, 'registro_tutorias.xlsx');
-const TUTORES_FILE = path.join(__dirname, 'tutores.json');
-
-// Inicializar archivo de tutores si no existe
-if (!fs.existsSync(TUTORES_FILE)) {
-    const tutoresIniciales = [
-        "ANDREA", "CRISTOBAL", "ERIK", "JOSÉ LUIS", "JUAN CARLOS", "MIGUEL", "XIMENA"
-    ];
-    fs.writeFileSync(TUTORES_FILE, JSON.stringify(tutoresIniciales, null, 2));
-}
-
-// Ruta Principal -> Formulario de Registro
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'registro.html'), (err) => {
-        if (err) res.status(500).send("Error al cargar registro.html. Verifique que el nombre del archivo sea exacto (minúsculas).");
-    });
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
-// Ruta Panel Administrativo -> Dashboard
-app.get('/admin', (req, res) => {
-    res.sendFile(path.join(__dirname, 'admin.html'), (err) => {
-        if (err) res.status(500).send("Error al cargar admin.html. Verifique el nombre del archivo en el repositorio.");
-    });
+const JWT_SECRET = process.env.JWT_SECRET || 'secreto_super_seguro_upsr';
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
 });
 
-// API Endpoints
-app.get('/api/tutores', (req, res) => {
-    try {
-        const data = fs.readFileSync(TUTORES_FILE, 'utf8');
-        res.json(JSON.parse(data));
-    } catch (err) {
-        res.status(500).json({ error: 'Error al leer tutores' });
-    }
-});
+const verificarToken = (req, res, next) => {
+  const token = req.headers['authorization'];
+  if (!token) return res.status(403).json({ error: 'Acceso denegado' });
+  try {
+    const bearer = token.split(' ')[1];
+    const decoded = jwt.verify(bearer, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    res.status(401).json({ error: 'Token inválido o expirado' });
+  }
+};
 
-app.post('/api/tutores', (req, res) => {
-    const { nombre } = req.body;
-    if (!nombre) return res.status(400).json({ error: 'Nombre requerido' });
+// Ruta pública: Registro de asesoría
+app.post('/api/registro', async (req, res) => {
+  const { nombre_alumno, sexo, carrera, grupo, turno, tutor, duracion, motivo, canalizacion_psicopedagogia, comentarios } = req.body;
 
-    try {
-        const tutores = JSON.parse(fs.readFileSync(TUTORES_FILE, 'utf8'));
-        const nombreMayus = nombre.toUpperCase();
-        if (!tutores.includes(nombreMayus)) {
-            tutores.push(nombreMayus);
-            fs.writeFileSync(TUTORES_FILE, JSON.stringify(tutores, null, 2));
-        }
-        res.sendStatus(200);
-    } catch (err) {
-        res.status(500).json({ error: 'Error al guardar tutor' });
-    }
-});
+  try {
+    const query = `
+      INSERT INTO registros (nombre_alumno, sexo, carrera, grupo, turno, tutor, duracion, motivo, canalizacion_psicopedagogia, comentarios)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *;
+    `;
+    const values = [nombre_alumno, sexo, carrera, grupo, turno, tutor, duracion, motivo, canalizacion_psicopedagogia, comentarios];
+    const result = await pool.query(query, values);
 
-app.delete('/api/tutores', (req, res) => {
-    const { nombre } = req.body;
-    try {
-        let tutores = JSON.parse(fs.readFileSync(TUTORES_FILE, 'utf8'));
-        tutores = tutores.filter(t => t !== nombre);
-        fs.writeFileSync(TUTORES_FILE, JSON.stringify(tutores, null, 2));
-        res.sendStatus(200);
-    } catch (err) {
-        res.status(500).json({ error: 'Error al eliminar tutor' });
-    }
-});
-
-app.get('/api/tutorias', (req, res) => {
-    try {
-        if (!fs.existsSync(EXCEL_FILE)) {
-            return res.json([]);
-        }
-        const workbook = XLSX.readFile(EXCEL_FILE);
-        const worksheet = workbook.Sheets['Tutorias'];
-        const rows = worksheet ? XLSX.utils.sheet_to_json(worksheet) : [];
-        res.json(rows);
-    } catch (err) {
-        res.status(500).json({ error: 'Error al leer el archivo de Excel' });
-    }
-});
-
-app.post('/api/tutorias', (req, res) => {
-    const data = req.body;
-    let workbook;
-    let worksheet;
-
-    if (fs.existsSync(EXCEL_FILE)) {
-        workbook = XLSX.readFile(EXCEL_FILE);
-        worksheet = workbook.Sheets['Tutorias'];
-    } else {
-        workbook = XLSX.utils.book_new();
-        worksheet = XLSX.utils.json_to_sheet([]);
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Tutorias');
+    if (canalizacion_psicopedagogia === 'Sí' && process.env.EMAIL_USER) {
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: process.env.EMAIL_PSICOPEDAGOGIA || process.env.EMAIL_USER,
+        subject: `Alerta: Canalización a Psicopedagogía - ${nombre_alumno}`,
+        html: `
+          <h3>Alerta de Canalización a Psicopedagogía</h3>
+          <p><strong>Alumno:</strong> ${nombre_alumno}</p>
+          <p><strong>Carrera:</strong> ${carrera} (${grupo} - ${turno})</p>
+          <p><strong>Tutor atendió:</strong> ${tutor}</p>
+          <p><strong>Motivo:</strong> ${motivo}</p>
+          <p><strong>Comentarios:</strong> ${comentarios || 'Sin comentarios adicionales.'}</p>
+        `
+      };
+      transporter.sendMail(mailOptions, (err) => {
+        if (err) console.error('Error enviando correo:', err);
+      });
     }
 
-    const ahora = new Date();
-    const fechaHoraAutomatica = ahora.toLocaleString('es-MX', {
-        timeZone: 'America/Mexico_City',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    });
-
-    const rows = worksheet ? XLSX.utils.sheet_to_json(worksheet) : [];
-    rows.push({
-        "Fecha y Hora": fechaHoraAutomatica,
-        "Matrícula": data.matricula || 'N/A',
-        "Nombre del alumno": data.nombre,
-        "Sexo": data.sexo,
-        "Carrera": data.carrera,
-        "Grupo": data.grupo,
-        "Turno": data.turno,
-        "Tutor que atiende": data.tutor,
-        "Motivos de la tutoría": data.motivo,
-        "Canalización a psicopedagogía": data.canalizacion,
-        "Comentarios": data.comentarios
-    });
-
-    const newWorksheet = XLSX.utils.json_to_sheet(rows);
-    workbook.Sheets['Tutorias'] = newWorksheet;
-    XLSX.writeFile(workbook, EXCEL_FILE);
-
-    res.sendStatus(200);
+    res.status(201).json({ mensaje: 'Registro guardado con éxito', data: result.rows[0] });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al guardar el registro' });
+  }
 });
 
-const PORT = process.env.PORT || 3000;
+// Ruta pública: Login de Administrador
+app.post('/api/login', async (req, res) => {
+  const { usuario, password } = req.body;
+  if (usuario === process.env.ADMIN_USER && password === process.env.ADMIN_PASS) {
+    const token = jwt.sign({ usuario }, JWT_SECRET, { expiresIn: '8h' });
+    return res.json({ token });
+  }
+  res.status(401).json({ error: 'Credenciales incorrectas' });
+});
+
+// Ruta privada: Consulta e historial dinámico con filtros
+app.get('/api/registros', verificarToken, async (req, res) => {
+  const { fecha_inicio, fecha_fin, carrera, tutor, busqueda } = req.query;
+  let conditions = [];
+  let values = [];
+
+  if (fecha_inicio && fecha_fin) {
+    values.push(`${fecha_inicio} 00:00:00`, `${fecha_fin} 23:59:59`);
+    conditions.push(`fecha_registro BETWEEN $${values.length - 1} AND $${values.length}`);
+  }
+  if (carrera) {
+    values.push(carrera);
+    conditions.push(`carrera = $${values.length}`);
+  }
+  if (tutor) {
+    values.push(tutor);
+    conditions.push(`tutor = $${values.length}`);
+  }
+  if (busqueda) {
+    values.push(`%${busqueda}%`);
+    conditions.push(`nombre_alumno ILIKE $${values.length}`);
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const query = `SELECT * FROM registros ${whereClause} ORDER BY fecha_registro DESC;`;
+
+  try {
+    const result = await pool.query(query, values);
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al consultar el historial' });
+  }
+});
+
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-    console.log(`Servidor activo en el puerto ${PORT}`);
+  console.log(`Servidor ejecutándose en el puerto ${PORT}`);
 });
