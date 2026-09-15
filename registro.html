@@ -3,125 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portal de Registro de Tutorías - Universidad Politécnica Santa Rosa</title>
-    <!-- Bootstrap 5 CSS & FontAwesome Icons -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <title>Registro de Asesorías - Docentes</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --primary-navy: #0e305d;
-            --accent-blue: #0066cc;
-        }
-        body {
-            background-color: #f4f6f9;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            color: #333;
-        }
-        .header-institutional {
-            background-color: #ffffff;
-            border-bottom: 2px solid #e0e0e0;
-            padding: 10px 20px;
-        }
-        .banner-bar {
-            background-color: var(--primary-navy);
-            color: white;
-            padding: 10px 20px;
-            font-size: 0.95rem;
-            font-weight: 600;
-        }
-        .card-form {
-            border: none;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-            max-width: 1050px;
-            margin: 30px auto;
-        }
-        .form-title {
-            color: var(--accent-blue);
-            font-weight: 700;
-            letter-spacing: 0.5px;
-        }
-        .btn-custom-navy {
-            background-color: var(--primary-navy);
-            color: white;
-            padding: 8px 24px;
-            font-weight: 600;
-            border-radius: 6px;
-        }
-        .btn-custom-navy:hover {
-            background-color: #0a2345;
-            color: white;
-        }
-        .footer-text {
-            font-size: 0.85rem;
-            color: #6c757d;
-            padding: 15px 20px;
-        }
+        :root { --bs-primary: #1b396a; --bg-light: #f4f7fc; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-light); color: #2d3748; }
+        .card { border: none; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border-radius: 0.5rem; }
+        .btn-primary { background-color: var(--bs-primary); border-color: var(--bs-primary); }
+        .btn-primary:hover { background-color: #142a4f; border-color: #142a4f; }
     </style>
 </head>
-<body>
+<body class="bg-light">
 
-    <!-- Logos Encabezado -->
-    <header class="header-institutional d-flex justify-content-between align-items-center">
-        <div class="d-flex align-items-center gap-3">
-            <span class="badge bg-dark px-2 py-1 fs-6">HUMANIDADES</span>
-            <small class="text-muted lh-1 d-none d-md-block" style="font-size: 11px;">Bilingual<br>International<br>Sustainable<br>University</small>
+    <nav class="navbar navbar-dark shadow-sm py-2" style="background-color: #1b396a !important;">
+        <div class="container-fluid px-4">
+            <span class="navbar-brand d-flex align-items-center gap-2 fs-6 fw-bold">
+                <i class="fa-solid fa-graduation-cap"></i> Portal de Registro de Tutorías (Docentes)
+            </span>
+            <span class="badge bg-light text-dark px-2 py-1 fw-semibold small">Periodo: May-Ago 2026</span>
         </div>
-        <div class="d-flex align-items-center gap-2">
-            <span class="fw-bold text-navy" style="letter-spacing: 1px;">POLITÉCNICA SANTA ROSA</span>
-            <span class="badge bg-success">BiS UNIVERSITIES</span>
-        </div>
-    </header>
+    </nav>
 
-    <!-- Barra de Período -->
-    <div class="banner-bar d-flex justify-content-between align-items-center">
-        <div><i class="fa-solid fa-graduation-cap me-2"></i>Portal de Registro de Tutorías (Alumnos)</div>
-        <span class="badge bg-light text-dark fw-normal">Período: May-Ago 2026</span>
-    </div>
-
-    <!-- Contenedor Principal / Formulario -->
-    <div class="container px-3">
-        <div class="card card-form p-4 p-md-5 bg-white">
-            <h3 class="form-title text-center mb-1">STUDENT COUNSELING REGISTRATION</h3>
-            <p class="text-muted text-center mb-4 small">Complete los datos correspondientes a la sesión de asesoría impartida.</p>
+    <div class="container-fluid px-3 my-3">
+        <div class="card p-3 p-lg-4 mx-auto" style="max-width: 1400px;">
+            <div class="text-center mb-3">
+                <h4 class="fw-bold text-primary mb-1">Registro de Tutoría Individual</h4>
+                <p class="text-muted small mb-0">Complete los datos correspondientes a la sesión de asesoría impartida.</p>
+            </div>
 
             <form id="tutorForm">
-                <div class="row g-3">
-                    <!-- Tutor que atiende -->
-                    <div class="col-md-6">
-                        <label for="profesor-atiende" class="form-label fw-semibold small mb-1">Tutor que atiende:</label>
-                        <select id="profesor-atiende" class="form-select form-select-sm" required>
-                            <option value="">Cargando profesores...</option>
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold small mb-1">Tutor que atiende:</label>
+                        <select class="form-select form-select-sm" id="tutor" required>
+                            <option value="">Cargando tutores...</option>
                         </select>
                     </div>
 
-                    <!-- Matrícula -->
-                    <div class="col-md-6">
-                        <label for="input-matricula" class="form-label fw-semibold small mb-1">Matrícula:</label>
-                        <input type="text" id="input-matricula" class="form-control form-control-sm" placeholder="Ingresa matrícula" required>
-                        <small class="text-muted d-block mt-1" style="font-size: 11px;">Presiona Tab o sal de la casilla para autocompletar.</small>
-                    </div>
-
-                    <!-- Nombre Alumno -->
                     <div class="col-md-8">
-                        <label for="nombre-alumno" class="form-label fw-semibold small mb-1">Nombre del alumno:</label>
-                        <input type="text" id="nombre-alumno" class="form-control form-control-sm" placeholder="Nombre completo del estudiante" required>
+                        <label class="form-label fw-semibold small mb-1">Nombre del alumno:</label>
+                        <input type="text" class="form-control form-control-sm" id="nombre" required placeholder="Nombre completo del estudiante">
                     </div>
 
-                    <!-- Sexo -->
-                    <div class="col-md-4">
-                        <label for="sexo-alumno" class="form-label fw-semibold small mb-1">Sexo:</label>
-                        <select id="sexo-alumno" class="form-select form-select-sm" required>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small mb-1">Sexo:</label>
+                        <select class="form-select form-select-sm" id="sexo" required>
                             <option value="">Elegir opción</option>
                             <option value="Hombre">Hombre</option>
                             <option value="Mujer">Mujer</option>
                         </select>
                     </div>
 
-                    <!-- Carrera -->
-                    <div class="col-md-4">
-                        <label for="carrera-alumno" class="form-label fw-semibold small mb-1">Carrera:</label>
-                        <select id="carrera-alumno" class="form-select form-select-sm" required>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small mb-1">Carrera:</label>
+                        <select class="form-select form-select-sm" id="carrera" required>
                             <option value="">Elegir opción</option>
                             <option value="IAEV">IAEV</option>
                             <option value="ICM">ICM</option>
@@ -132,70 +69,94 @@
                         </select>
                     </div>
 
-                    <!-- Grupo -->
-                    <div class="col-md-4">
-                        <label for="grupo-alumno" class="form-label fw-semibold small mb-1">Grupo:</label>
-                        <input type="text" id="grupo-alumno" class="form-control form-control-sm" placeholder="Ej. 4517" required>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small mb-1">Grupo:</label>
+                        <input type="text" class="form-control form-control-sm" id="grupo" required placeholder="Ej. 4°A">
                     </div>
 
-                    <!-- Turno -->
-                    <div class="col-md-4">
-                        <label for="turno-alumno" class="form-label fw-semibold small mb-1">Turno:</label>
-                        <select id="turno-alumno" class="form-select form-select-sm" required>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small mb-1">Turno:</label>
+                        <select class="form-select form-select-sm" id="turno" required>
                             <option value="">Elegir opción</option>
                             <option value="Matutino">Matutino</option>
                             <option value="Vespertino">Vespertino</option>
                         </select>
                     </div>
 
-                    <!-- Motivos de la tutoría -->
                     <div class="col-md-4">
-                        <label for="motivos-tutoria" class="form-label fw-semibold small mb-1">Motivos de la tutoría:</label>
-                        <select id="motivos-tutoria" class="form-select form-select-sm" required>
+                        <label class="form-label fw-semibold small mb-1">Motivos de la tutoría:</label>
+                        <select class="form-select form-select-sm" id="motivo" required>
                             <option value="">Elegir opción</option>
-                            <option value="Académico">Académico</option>
-                            <option value="Personal / Familiar">Personal / Familiar</option>
-                            <option value="Orientación Vocacional">Orientación Vocacional</option>
-                            <option value="Administrativo">Administrativo</option>
+                            <option value="Motivos académicos">Motivos académicos</option>
+                            <option value="Motivos familiares">Motivos familiares</option>
+                            <option value="Motivos personales">Motivos personales</option>
+                            <option value="Motivos sociales">Motivos sociales</option>
                         </select>
                     </div>
 
-                    <!-- Canalización -->
-                    <div class="col-md-4">
-                        <label for="canalizacion-alumno" class="form-label fw-semibold small mb-1">Canalización:</label>
-                        <select id="canalizacion-alumno" class="form-select form-select-sm" required>
+                    <div class="col-md-2">
+                        <label class="form-label fw-semibold small mb-1">Canalización:</label>
+                        <select class="form-select form-select-sm" id="canalizacion" required>
+                            <option value="">Elegir</option>
+                            <option value="Sí">Sí</option>
                             <option value="No">No</option>
-                            <option value="Sí">Sí (Psicopedagogía)</option>
                         </select>
                     </div>
 
-                    <!-- Comentarios / Observaciones -->
-                    <div class="col-md-4">
-                        <label for="observaciones-tutoria" class="form-label fw-semibold small mb-1">Comentarios / Observaciones:</label>
-                        <input type="text" id="observaciones-tutoria" class="form-control form-control-sm" placeholder="Detalles relevantes de la sesión...">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold small mb-1">Comentarios / Observaciones:</label>
+                        <input type="text" class="form-control form-control-sm" id="comentarios" placeholder="Detalles relevantes de la sesión...">
                     </div>
-                </div>
 
-                <!-- Botón de Envío -->
-                <div class="text-center mt-4">
-                    <button type="submit" class="btn btn-custom-navy shadow-sm">
-                        <i class="fa-solid fa-floppy-disk me-2"></i>Registrar Tutoría
-                    </button>
+                    <div class="col-12 text-center mt-3">
+                        <button type="submit" class="btn btn-primary px-4 py-2 shadow-sm fw-semibold">
+                            <i class="fa-solid fa-floppy-disk me-1"></i> Registrar Tutoría
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Footer -->
-    <footer class="footer-text border-top mt-5 bg-white">
-        <div class="container d-flex justify-content-between align-items-center">
-            <div>© 2026 Politécnica Santa Rosa. Todos los derechos reservados.</div>
-            <div>Versión 1.0.0</div>
-        </div>
-    </footer>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        async function cargarTutores() {
+            try {
+                const res = await fetch('/api/tutores');
+                const tutores = await res.json();
+                const selectTutor = document.getElementById('tutor');
+                selectTutor.innerHTML = '<option value="">Elegir opción</option>';
+                tutores.forEach(t => { selectTutor.innerHTML += `<option value="${t}">${t}</option>`; });
+            } catch (err) { console.error('Error al cargar tutores:', err); }
+        }
 
-    <!-- Bootstrap JS + Custom App Logic -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="app.js"></script>
+        document.getElementById('tutorForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = {
+                nombre: document.getElementById('nombre').value,
+                sexo: document.getElementById('sexo').value,
+                carrera: document.getElementById('carrera').value,
+                grupo: document.getElementById('grupo').value,
+                turno: document.getElementById('turno').value,
+                tutor: document.getElementById('tutor').value,
+                motivo: document.getElementById('motivo').value,
+                canalizacion: document.getElementById('canalizacion').value,
+                comentarios: document.getElementById('comentarios').value,
+            };
+
+            const response = await fetch('/api/tutorias', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+
+            if (response.ok) {
+                alert('¡Tutoría registrada exitosamente y guardada en Excel!');
+                document.getElementById('tutorForm').reset();
+            } else { alert('Error al registrar la tutoría.'); }
+        });
+
+        window.onload = cargarTutores;
+    </script>
 </body>
 </html>
