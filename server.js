@@ -87,7 +87,6 @@ app.post('/api/tutorias', (req, res) => {
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Tutorias');
     }
 
-    // Generar fecha y hora actual automáticamente
     const ahora = new Date();
     const fechaHoraAutomatica = ahora.toLocaleString('es-MX', {
         timeZone: 'America/Mexico_City',
@@ -102,15 +101,16 @@ app.post('/api/tutorias', (req, res) => {
     const rows = worksheet ? XLSX.utils.sheet_to_json(worksheet) : [];
     rows.push({
         "Fecha y Hora": fechaHoraAutomatica,
+        "Matrícula": data.matricula || 'N/A',
         "Nombre del alumno": data.nombre,
-        Sexo: data.sexo,
-        Carrera: data.carrera,
-        Grupo: data.grupo,
-        Turno: data.turno,
+        "Sexo": data.sexo,
+        "Carrera": data.carrera,
+        "Grupo": data.grupo,
+        "Turno": data.turno,
         "Tutor que atiende": data.tutor,
         "Motivos de la tutoría": data.motivo,
         "Canalización a psicopedagogía": data.canalizacion,
-        Comentarios: data.comentarios
+        "Comentarios": data.comentarios
     });
 
     const newWorksheet = XLSX.utils.json_to_sheet(rows);
