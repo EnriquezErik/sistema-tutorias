@@ -116,7 +116,7 @@ function readJsonBody(request, limit = 16384) {
 async function getBootstrap() {
   const [institution, periods, careers, groups, subjects, reasons] = await Promise.all([
     database.query("select school_name, footer_text, timezone from public.institution_settings where id = true"),
-    database.query("select id, name, starts_on, ends_on from public.periods where active = true order by (current_date between starts_on and ends_on) desc, starts_on desc"),
+    database.query("select id, name, starts_on, ends_on, active from public.periods order by active desc, (current_date between starts_on and ends_on) desc, starts_on desc"),
     database.query("select id, code::text, name from public.careers where active = true order by code"),
     database.query("select id, name::text, career_id from public.student_groups where active = true order by name"),
     database.query("select id, name::text from public.subjects where active = true order by name"),
@@ -125,6 +125,7 @@ async function getBootstrap() {
   return {
     school: institution.rows[0] || {},
     periods: periods.rows,
+    current_period: periods.rows.find(period => period.active) || null,
     careers: careers.rows,
     groups: groups.rows,
     subjects: subjects.rows,

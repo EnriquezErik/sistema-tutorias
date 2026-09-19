@@ -20,18 +20,19 @@ function appConfig(){
 
 async function loadRemoteConfig(){
   try{
-    const response=await fetch("/api/bootstrap",{headers:{Accept:"application/json"}});
+    const response=await fetch("/api/bootstrap?refresh="+Date.now(),{cache:"no-store",headers:{Accept:"application/json"}});
     if(!response.ok)return false;
     const payload=await response.json(),d=payload.data;
     if(!payload.ok||!d)return false;
     const periodNames=(d.periods||[]).map(x=>x.name);
+    const currentPeriod=d.current_period?.name||(d.periods||[]).find(x=>x.active)?.name||periodNames[0]||DATA.period;
     const careerCodes=new Map((d.careers||[]).map(x=>[x.id,x.code]));
     const groupsByCareer={};
     for(const group of d.groups||[]){const code=careerCodes.get(group.career_id);if(code)(groupsByCareer[code]||(groupsByCareer[code]=[])).push(group.name)}
     remoteConfig={
       ...DATA,
       schoolName:d.school?.school_name||DATA.schoolName,
-      period:periodNames[0]||DATA.period,
+      period:currentPeriod,
       careers:["Seleccione",...(d.careers||[]).map(x=>x.code)],
       groups:["Seleccione",...(d.groups||[]).map(x=>x.name)],
       subjects:["Seleccione",...(d.subjects||[]).map(x=>x.name)],

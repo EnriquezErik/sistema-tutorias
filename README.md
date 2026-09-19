@@ -58,6 +58,7 @@ Si Render o PostgreSQL no están disponibles temporalmente, la página conserva 
 - `/api/bootstrap`: entrega a la página los catálogos activos de PostgreSQL.
 - El catálogo **Cuatrimestres** del panel administrativo ya guarda directamente en `public.periods` (nombre, fecha inicial y fecha final). También permite inactivar o reactivar sin eliminar el historial.
 - Se rechazan nombres duplicados, fechas inválidas y rangos que se traslapen con otro cuatrimestre activo.
+- El encabezado del registro, los filtros del historial y los selectores del dashboard se alimentan de la misma tabla `public.periods`. El encabezado usa el cuatrimestre activo y los filtros conservan también los periodos históricos inactivos.
 - `/api/session`: confirma si existe una sesión válida.
 - `/api/students/{matrícula}`: busca al alumno para autocompletar sus datos.
 - `/api/advisories`: registra una asesoría o devuelve el historial autorizado.
