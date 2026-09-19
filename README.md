@@ -2,28 +2,6 @@
 
 Esta versión guarda en PostgreSQL los alumnos, las asesorías y el historial personal de cada asesor.
 
-## Corrección v34: aislamiento del puente administrativo
-
-- `index.html?bridge=1` conserva únicamente su función de sincronización local.
-- El puente oculto de `admin.html` ya no ejecuta el acceso, la restauración ni el cierre de sesión del asesor.
-- Mantener abierta o actualizar la Administración ya no puede borrar la sesión del asesor en otra pestaña.
-- No se modificaron formularios, catálogos, reportes, estadísticas ni estructura de PostgreSQL.
-
-## Novedad v33: persistencia integral de sesión
-
-- Se revisó el flujo completo entre `index.html`, `app.js` y `server.js`.
-- La autenticación persistente se conserva tanto en la cookie segura como en un token firmado de respaldo.
-- Todas las operaciones privadas del asesor validan el mismo token después de `F5` o `Ctrl + F5`.
-- El token no permite utilizar cuentas inactivas: el servidor consulta su estado en PostgreSQL en cada operación privada.
-- **Cerrar sesión** elimina la sesión local, el token de respaldo y la cookie del servidor.
-
-## Novedad v32: sesión persistente del asesor
-
-- La sesión permanece abierta al recargar con `F5` o `Ctrl + F5`.
-- Si el navegador omite temporalmente la cookie, las cuentas sin contraseña se restauran de forma silenciosa.
-- Las cuentas inactivas continúan bloqueadas y no pueden restaurar una sesión.
-- La sesión se elimina únicamente al pulsar **Cerrar sesión**, al inactivar la cuenta o cuando deja de ser válida.
-
 ## Novedad v31: estado de las cuentas de asesores
 
 - El catálogo de asesores muestra cuentas activas e inactivas.
@@ -78,6 +56,8 @@ Si Render o PostgreSQL no están disponibles temporalmente, la página conserva 
 
 - `/api/health`: confirma la conexión y muestra los totales de los catálogos.
 - `/api/bootstrap`: entrega a la página los catálogos activos de PostgreSQL.
+- El catálogo **Cuatrimestres** del panel administrativo ya guarda directamente en `public.periods` (nombre, fecha inicial y fecha final). También permite inactivar o reactivar sin eliminar el historial.
+- Se rechazan nombres duplicados, fechas inválidas y rangos que se traslapen con otro cuatrimestre activo.
 - `/api/session`: confirma si existe una sesión válida.
 - `/api/students/{matrícula}`: busca al alumno para autocompletar sus datos.
 - `/api/advisories`: registra una asesoría o devuelve el historial autorizado.

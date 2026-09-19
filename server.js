@@ -74,24 +74,21 @@ function signSession(user) {
   return `${payload}.${signature}`;
 }
 
-function verifySessionToken(token){
-  if(!token)return null;
-  const [payload,signature]=token.split(".");
-  if(!payload||!signature)return null;
-  const expected=crypto.createHmac("sha256",SESSION_SECRET).update(payload).digest("base64url");
-  const actualBuffer=Buffer.from(signature),expectedBuffer=Buffer.from(expected);
-  if(actualBuffer.length!==expectedBuffer.length||!crypto.timingSafeEqual(actualBuffer,expectedBuffer))return null;
-  try{const session=JSON.parse(Buffer.from(payload,"base64url").toString("utf8"));return session.exp>Date.now()?session:null}catch(error){return null}
-}
-
 function readSession(request, cookieName = "advisor_session") {
-  const cookieToken = parseCookies(request)[cookieName] || "";
-  const authorization = String(request.headers.authorization || "");
-  const bearerToken = cookieName === "advisor_session" && authorization.startsWith("Bearer ")
-    ? authorization.slice(7).trim()
-    : "";
-  for(const token of [cookieToken,bearerToken]){const session=verifySessionToken(token);if(session)return session}
-  return null;
+  const token = parseCookies(request)[cookieName];
+  if (!token) return null;
+  const [payload, signature] = token.split(".");
+  if (!payload || !signature) return null;
+  const expected = crypto.createHmac("sha256", SESSION_SECRET).update(payload).digest("base64url");
+  const actualBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (actualBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(actualBuffer, expectedBuffer)) return null;
+  try {
+    const session = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    return session.exp > Date.now() ? session : null;
+  } catch (error) {
+    return null;
+  }
 }
 
 async function isActiveAdvisorSession(session){
@@ -119,7 +116,7 @@ function readJsonBody(request, limit = 16384) {
 async function getBootstrap() {
   const [institution, periods, careers, groups, subjects, reasons] = await Promise.all([
     database.query("select school_name, footer_text, timezone from public.institution_settings where id = true"),
-    database.query("select id, name, starts_on, ends_on from public.periods where active = true order by starts_on desc"),
+    database.query("select id, name, starts_on, ends_on from public.periods where active = true order by (current_date between starts_on and ends_on) desc, starts_on desc"),
     database.query("select id, code::text, name from public.careers where active = true order by code"),
     database.query("select id, name::text, career_id from public.student_groups where active = true order by name"),
     database.query("select id, name::text from public.subjects where active = true order by name"),
@@ -164,11 +161,7 @@ async function apiLogin(request, response) {
   const token = signSession(user);
   const cookieName = area === "admin" ? "admin_session" : "advisor_session";
   response.setHeader("Set-Cookie", `${cookieName}=${encodeURIComponent(token)}; Max-Age=31536000; Path=/; HttpOnly; Secure; SameSite=Lax`);
-  sendJson(response, 200, {
-    ok: true,
-    user: { usuario: user.username, nombre: user.full_name, rol: user.role },
-    ...(area === "advisor" ? { sessionToken: token } : {})
-  });
+  sendJson(response, 200, { ok: true, user: { usuario: user.username, nombre: user.full_name, rol: user.role } });
 }
 
 function requireAdmin(request, response) {
@@ -181,7 +174,7 @@ function requireAdmin(request, response) {
 async function apiAdminData(request, response) {
   if (!requireAdmin(request, response)) return;
   const session = readSession(request, "admin_session");
-  const [advisories, students, users, bootstrap] = await Promise.all([
+  const [advisories, students, users, bootstrap, periodsAdmin] = await Promise.all([
     database.query(`
       select a.id, s.enrollment::text, s.full_name as student_name, s.sex, s.shift,
              c.code::text as career_code, g.name::text as group_name,
@@ -207,12 +200,42 @@ async function apiAdminData(request, response) {
                            (password_hash is not null) as "requierePassword",
                            (recovery_code_hash is not null) as "recuperacionConfigurada"
                       from public.app_users order by role, full_name`),
-    getBootstrap()
+    getBootstrap(),
+    database.query("select id, name, starts_on, ends_on, active from public.periods order by starts_on desc")
   ]);
   sendJson(response, 200, { ok: true, user: session, data: {
     advisories: advisories.rows.map(advisoryRow), students: students.rows, users: users.rows,
-    catalogs: bootstrap
+    catalogs: bootstrap, periodsAdmin: periodsAdmin.rows
   }});
+}
+
+async function apiCreatePeriod(request,response){
+  if(!requireAdmin(request,response))return;
+  let body;try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false,message:"Solicitud inválida."});return}
+  const name=String(body.name||"").trim(),startsOn=String(body.startsOn||""),endsOn=String(body.endsOn||"");
+  if(!name||!/^\d{4}-\d{2}-\d{2}$/.test(startsOn)||!/^\d{4}-\d{2}-\d{2}$/.test(endsOn)){sendJson(response,400,{ok:false,message:"Capture el nombre, la fecha inicial y la fecha final."});return}
+  if(endsOn<startsOn){sendJson(response,400,{ok:false,message:"La fecha final no puede ser anterior a la fecha inicial."});return}
+  const overlap=await database.query("select name from public.periods where active=true and starts_on <= $2::date and ends_on >= $1::date limit 1",[startsOn,endsOn]);
+  if(overlap.rowCount){sendJson(response,409,{ok:false,message:`Las fechas se traslapan con ${overlap.rows[0].name}.`});return}
+  try{
+    const result=await database.query("insert into public.periods(name,starts_on,ends_on,active) values($1,$2::date,$3::date,true) returning id,name,starts_on,ends_on,active",[name,startsOn,endsOn]);
+    sendJson(response,201,{ok:true,period:result.rows[0]});
+  }catch(error){if(error.code==='23505'){sendJson(response,409,{ok:false,message:"Ya existe un cuatrimestre con ese nombre."});return}throw error}
+}
+
+async function apiSetPeriodActive(request,response,periodId){
+  if(!requireAdmin(request,response))return;
+  let body;try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false,message:"Solicitud inválida."});return}
+  if(typeof body.active!=="boolean"){sendJson(response,400,{ok:false,message:"Indique el estado del cuatrimestre."});return}
+  if(body.active){
+    const current=await database.query("select starts_on,ends_on from public.periods where id=$1::uuid",[periodId]);
+    if(!current.rowCount){sendJson(response,404,{ok:false,message:"No se encontró el cuatrimestre."});return}
+    const overlap=await database.query("select name from public.periods where id<>$1::uuid and active=true and starts_on <= $3::date and ends_on >= $2::date limit 1",[periodId,current.rows[0].starts_on,current.rows[0].ends_on]);
+    if(overlap.rowCount){sendJson(response,409,{ok:false,message:`No puede reactivarse porque sus fechas se traslapan con ${overlap.rows[0].name}.`});return}
+  }
+  const result=await database.query("update public.periods set active=$1,updated_at=now() where id=$2::uuid returning id,name,starts_on,ends_on,active",[body.active,periodId]);
+  if(!result.rowCount){sendJson(response,404,{ok:false,message:"No se encontró el cuatrimestre."});return}
+  sendJson(response,200,{ok:true,period:result.rows[0]});
 }
 
 async function apiAccountSecurity(request, response) {
@@ -481,9 +504,8 @@ const server = http.createServer(async (request, response) => {
   if (requestUrl.pathname === "/api/session") {
     if (request.method !== "GET") { sendJson(response, 405, { ok: false }); return; }
     const session = readSession(request);
-    if(!session){sendJson(response,401,{ok:false,code:"unauthorized"});return}
-    if(!await isActiveAdvisorSession(session)){sendJson(response,403,{ok:false,code:"inactive_account",message:"La cuenta del asesor está inactiva."});return}
-    sendJson(response,200,{ok:true,user:session});
+    const valid=session&&await isActiveAdvisorSession(session);
+    sendJson(response, valid ? 200 : 401, valid ? { ok: true, user: session } : { ok: false });
     return;
   }
 
@@ -519,6 +541,22 @@ const server = http.createServer(async (request, response) => {
     if (request.method !== "POST") { sendJson(response,405,{ok:false}); return; }
     if (!database) { sendJson(response,503,{ok:false}); return; }
     try { await apiCreateUser(request,response); } catch(error) { console.error("Error al crear usuario:",error.message); sendJson(response,503,{ok:false}); }
+    return;
+  }
+
+  if (requestUrl.pathname === "/api/admin/periods") {
+    if (request.method !== "POST") { sendJson(response,405,{ok:false}); return; }
+    if (!database) { sendJson(response,503,{ok:false}); return; }
+    try { await apiCreatePeriod(request,response); } catch(error) { console.error("Error al crear cuatrimestre:",error.message); sendJson(response,503,{ok:false,message:"No fue posible guardar el cuatrimestre."}); }
+    return;
+  }
+
+  const adminPeriodActiveMatch=requestUrl.pathname.match(/^\/api\/admin\/periods\/([^/]+)\/active$/);
+  if(adminPeriodActiveMatch){
+    if(request.method!=="PATCH"){sendJson(response,405,{ok:false});return}
+    if(!database){sendJson(response,503,{ok:false});return}
+    try{await apiSetPeriodActive(request,response,decodeURIComponent(adminPeriodActiveMatch[1]));}
+    catch(error){console.error("Error al cambiar estado del cuatrimestre:",error.message);sendJson(response,503,{ok:false,message:"No fue posible actualizar el cuatrimestre."});}
     return;
   }
 
