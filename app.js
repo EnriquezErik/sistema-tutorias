@@ -46,7 +46,10 @@ async function loadRemoteConfig(){
   }catch(error){return false}
 }
 
-function localRecords(){return JSON.parse(localStorage.getItem(KEY)||"[]")}function records(){return Array.isArray(remoteRecords)?remoteRecords:localRecords()}function saveRecords(r){localStorage.setItem(KEY,JSON.stringify(r))}function students(){return JSON.parse(localStorage.getItem("alumnos_demo")||"[]")}function saveStudents(r){localStorage.setItem("alumnos_demo",JSON.stringify(r))}
+function localRecords(){return JSON.parse(localStorage.getItem(KEY)||"[]")}
+function recordsForAdvisor(rows,username){const user=String(username||'').trim().toLowerCase();if(!user)return[];return rows.filter(record=>String(record.asesor||'').trim().toLowerCase()===user)}
+function records(){if(Array.isArray(remoteRecords))return remoteRecords;return recordsForAdvisor(localRecords(),currentUser()?.usuario)}
+function saveRecords(r){localStorage.setItem(KEY,JSON.stringify(r))}function students(){return JSON.parse(localStorage.getItem("alumnos_demo")||"[]")}function saveStudents(r){localStorage.setItem("alumnos_demo",JSON.stringify(r))}
 function fill(id,arr){const e=$("#"+id);if(e)e.innerHTML=arr.map(x=>`<option>${x}</option>`).join("")}
 function updateGroupsForCareer(){const career=$("#carrera")?.value;if(!remoteConfig?.groupsByCareer||!career||career==="Seleccione")return;fill("grupo",["Seleccione",...(remoteConfig.groupsByCareer[career]||[])])}
 function setStudentFields(editable){["sexo","carrera","grupo","turno"].forEach(id=>$("#"+id).disabled=!editable);$("#nombre").readOnly=!editable}
@@ -98,7 +101,8 @@ async function loadRemoteAdvisories(){
     const payload=await response.json();
     const databaseRecords=(payload.advisories||[]).map(x=>{const start=new Date(x.inicioIso),end=new Date(x.finIso);return {...x,fecha:start.toLocaleDateString("es-MX"),inicio:start.toLocaleTimeString("es-MX"),fin:end.toLocaleTimeString("es-MX")}});
     const ids=new Set(databaseRecords.map(x=>x.id));
-    remoteRecords=[...databaseRecords,...localRecords().filter(x=>!ids.has(x.id))];
+    const localAdvisorRecords=recordsForAdvisor(localRecords(),currentUser()?.usuario);
+    remoteRecords=[...databaseRecords,...localAdvisorRecords.filter(x=>!ids.has(x.id))];
     renderHistory();return true;
   }catch(error){return false}
 }
@@ -170,8 +174,9 @@ async function doLogin(){
     const payload=await response.json().catch(()=>({}));
     if(response.ok&&payload.user){
       savePersistentSession(payload.user);
+      remoteRecords=[];
       if(msg)msg.textContent="";
-      applySession(); hideLogin(); await loadRemoteAdvisories(); return;
+      applySession();renderHistory();hideLogin();await loadRemoteAdvisories();return;
     }
     if(response.status===400||response.status===401){
       if(msg)msg.textContent=payload.message||(response.status===400?"Escriba su usuario.":"Usuario o contraseña incorrectos.");
@@ -184,8 +189,9 @@ async function doLogin(){
   if(found.requierePassword && pass!==found.password){if(msg)msg.textContent="Contraseña incorrecta.";return}
   const session={usuario:found.usuario,nombre:found.nombre};
   savePersistentSession(session);
+  remoteRecords=recordsForAdvisor(localRecords(),session.usuario);
   if(msg)msg.textContent="";
-  applySession(); hideLogin();
+  applySession();renderHistory();hideLogin();
 }
 async function restoreRemoteSession(){
   try{
@@ -213,7 +219,9 @@ async function logout(){
   localStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(SESSION_BACKUP_KEY);
   document.cookie="asesor_session_local=; Max-Age=0; path=/; SameSite=Lax";
+  remoteRecords=null;
   clearInterval(timerId); timerId=null; currentStart=null;
+  renderHistory();
   showLogin();
 }
 
