@@ -1,6 +1,7 @@
 const DATA={schoolName:"NOMBRE DE LA INSTITUCIÓN",period:"Septiembre-Diciembre 2026",advisors:[{usuario:"Erik",nombre:"Erik (demo)",requierePassword:false,password:""}],careers:["Seleccione","IAEV","ICM","IRC","ITIID","LTF","ISA"],groups:["Seleccione","IAEV-PA-08","IAEV-PA-07","ITIID-IA-02","ITIID-SM-02","ISA-SA-06","ICM-CYM-03","IRC-MPR-02","LTF 08","SW 28"],subjects:["Seleccione","Matemáticas","Física","Cálculo","Estadística","Programación","Álgebra"],reasons:["Seleccione","Motivos académicos","Motivos familiares","Motivos personales","Motivos sociales"],sexos:["Seleccione","Hombre","Mujer"],turnos:["Seleccione","Matutino","Vespertino"]};
-const $=s=>document.querySelector(s),KEY="asesorias_demo";let currentStart=null,timerId=null;
+const $=s=>document.querySelector(s),KEY="asesorias_demo";let currentStart=null,timerId=null,remoteConfig=null;
 function appConfig(){
+  if(remoteConfig)return remoteConfig;
   let school={}; let cats={}; let periods=[];
   try{school=JSON.parse(localStorage.getItem("school_config_demo")||"{}")}catch(e){}
   try{cats=JSON.parse(localStorage.getItem("catalogs_demo")||"{}")}catch(e){}
@@ -15,6 +16,30 @@ function appConfig(){
     reasons:(cats.motivos&&cats.motivos.length?['Seleccione',...cats.motivos]:DATA.reasons),
     periods:(periods.length?periods:[DATA.period])
   };
+}
+
+async function loadRemoteConfig(){
+  try{
+    const response=await fetch("/api/bootstrap",{headers:{Accept:"application/json"}});
+    if(!response.ok)return false;
+    const payload=await response.json(),d=payload.data;
+    if(!payload.ok||!d)return false;
+    const periodNames=(d.periods||[]).map(x=>x.name);
+    remoteConfig={
+      ...DATA,
+      schoolName:d.school?.school_name||DATA.schoolName,
+      period:periodNames[0]||DATA.period,
+      careers:["Seleccione",...(d.careers||[]).map(x=>x.code)],
+      groups:["Seleccione",...(d.groups||[]).map(x=>x.name)],
+      subjects:["Seleccione",...(d.subjects||[]).map(x=>x.name)],
+      reasons:["Seleccione",...(d.reasons||[]).map(x=>x.name)],
+      periods:periodNames.length?periodNames:[DATA.period]
+    };
+    localStorage.setItem("catalogs_demo",JSON.stringify({carreras:remoteConfig.careers.slice(1),grupos:remoteConfig.groups.slice(1),materias:remoteConfig.subjects.slice(1),motivos:remoteConfig.reasons.slice(1)}));
+    localStorage.setItem("periods_demo",JSON.stringify(remoteConfig.periods));
+    localStorage.setItem("school_config_demo",JSON.stringify({schoolName:remoteConfig.schoolName}));
+    return true;
+  }catch(error){return false}
 }
 
 function records(){return JSON.parse(localStorage.getItem(KEY)||"[]")}function saveRecords(r){localStorage.setItem(KEY,JSON.stringify(r))}function students(){return JSON.parse(localStorage.getItem("alumnos_demo")||"[]")}function saveStudents(r){localStorage.setItem("alumnos_demo",JSON.stringify(r))}
@@ -48,7 +73,7 @@ function savePersistentSession(session){
     localStorage.setItem(SESSION_BACKUP_KEY,data);
   }catch(e){}
   try{
-    document.cookie="asesor_session="+encodeURIComponent(data)+"; Max-Age=315360000; path=/; SameSite=Lax";
+    document.cookie="asesor_session_local="+encodeURIComponent(data)+"; Max-Age=315360000; path=/; SameSite=Lax";
   }catch(e){}
 }
 function readCookie(name){try{const m=document.cookie.split("; ").find(x=>x.startsWith(name+"="));return m?decodeURIComponent(m.split("=").slice(1).join("=")):null}catch(e){return null}}
@@ -70,7 +95,7 @@ function currentUser(){
   const sources=[
     ()=>localStorage.getItem(SESSION_KEY),
     ()=>localStorage.getItem(SESSION_BACKUP_KEY),
-    ()=>readCookie("asesor_session")
+    ()=>readCookie("asesor_session_local")
   ];
   for(const get of sources){
     try{
@@ -96,16 +121,46 @@ function hideLogin(){
   const s=$("#loginScreen"); if(s)s.style.display="none";
   document.body.classList.remove("locked");
 }
-function doLogin(){
+async function doLogin(){
   const user=($("#loginUser")?.value||"").trim();
   const pass=$("#loginPassword")?.value||"";
   const msg=$("#loginMsg");
+  if(msg)msg.textContent="Verificando acceso...";
+  try{
+    const response=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({username:user,password:pass})});
+    const payload=await response.json().catch(()=>({}));
+    if(response.ok&&payload.user){
+      savePersistentSession(payload.user);
+      if(msg)msg.textContent="";
+      applySession(); hideLogin(); return;
+    }
+    if(response.status===400||response.status===401){
+      if(msg)msg.textContent=payload.message||(response.status===400?"Escriba su usuario.":"Usuario o contraseña incorrectos.");
+      return;
+    }
+  }catch(error){}
+  // Respaldo temporal para trabajar si Render o PostgreSQL no están disponibles.
   const found=getUsers().find(u=>u.activo!==false&&u.usuario.toLowerCase()===user.toLowerCase());
   if(!found){if(msg)msg.textContent="Usuario no encontrado.";return}
   if(found.requierePassword && pass!==found.password){if(msg)msg.textContent="Contraseña incorrecta.";return}
   const session={usuario:found.usuario,nombre:found.nombre};
   savePersistentSession(session);
+  if(msg)msg.textContent="";
   applySession(); hideLogin();
+}
+async function restoreRemoteSession(){
+  try{
+    const response=await fetch("/api/session",{headers:{Accept:"application/json"}});
+    if(response.status===401){
+      localStorage.removeItem(SESSION_KEY); localStorage.removeItem(SESSION_BACKUP_KEY);
+      document.cookie="asesor_session_local=; Max-Age=0; path=/; SameSite=Lax";
+      return false;
+    }
+    if(!response.ok)return false;
+    const payload=await response.json();
+    if(payload.ok&&payload.user){savePersistentSession(payload.user);return true}
+  }catch(error){}
+  return false;
 }
 function applySession(){
   const u=currentUser();
@@ -114,16 +169,17 @@ function applySession(){
   if($("#advisorUser"))$("#advisorUser").textContent=u.usuario;
   document.title="Registro de Asesorías · "+u.usuario;
 }
-function logout(){
+async function logout(){
+  try{await fetch("/api/logout",{method:"POST",headers:{Accept:"application/json"}})}catch(error){}
   localStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(SESSION_BACKUP_KEY);
-  document.cookie="asesor_session=; Max-Age=0; path=/; SameSite=Lax";
+  document.cookie="asesor_session_local=; Max-Age=0; path=/; SameSite=Lax";
   clearInterval(timerId); timerId=null; currentStart=null;
   showLogin();
 }
 
-document.addEventListener("DOMContentLoaded",()=>{const C=appConfig();if($("schoolName"))$("schoolName").textContent=C.schoolName;if($("periodName"))$("periodName").textContent=C.period;if($("advisorName"))$("advisorName").textContent="";fill("carrera",C.careers);fill("grupo",C.groups);fill("materia",C.subjects);fill("motivo",C.reasons);fill("turno",C.turnos||["Seleccione","Matutino","Vespertino"]);fill("sexo",C.sexos);if($("periodFilter"))$("periodFilter").innerHTML=`<option value="all">Todos los cuatrimestres</option>`+C.periods.map(p=>`<option value="${p}">${p}</option>`).join("");setStudentFields(false);renderHistory();
-applySession();
+document.addEventListener("DOMContentLoaded",async()=>{await loadRemoteConfig();const C=appConfig();if($("schoolName"))$("schoolName").textContent=C.schoolName;if($("periodName"))$("periodName").textContent=C.period;if($("advisorName"))$("advisorName").textContent="";fill("carrera",C.careers);fill("grupo",C.groups);fill("materia",C.subjects);fill("motivo",C.reasons);fill("turno",C.turnos||["Seleccione","Matutino","Vespertino"]);fill("sexo",C.sexos);if($("periodFilter"))$("periodFilter").innerHTML=`<option value="all">Todos los cuatrimestres</option>`+C.periods.map(p=>`<option value="${p}">${p}</option>`).join("");setStudentFields(false);renderHistory();
+await restoreRemoteSession();applySession();
 $("#loginBtn")?.addEventListener("click",doLogin);
 $("#loginUser")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("#loginPassword")?.focus()}});
 $("#loginPassword")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();doLogin()}});
