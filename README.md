@@ -17,6 +17,11 @@ Configuración institucional no aparece como sección independiente en Administr
 
 El servidor utiliza automáticamente el puerto asignado por Render. Para una prueba local, ejecute `node server.js` y abra `http://localhost:3000`.
 
+## Comprobación de PostgreSQL · v22
+Esta versión añade el controlador PostgreSQL y la ruta `GET /api/health`. No reemplaza todavía el almacenamiento local de las páginas.
+
+En Render debe existir la variable secreta `DATABASE_URL` con la cadena de conexión de Supabase. Al abrir `/api/health`, una conexión correcta devuelve `"ok": true`, `"database": "connected"` y los totales de los catálogos iniciales.
+
 
 Actualización v20 - Estadísticas Excel:
 - Se retiró el botón y código exclusivo de Imprimir estadísticas.
