@@ -1,5 +1,5 @@
 const DATA={schoolName:"NOMBRE DE LA INSTITUCIÓN",period:"Septiembre-Diciembre 2026",advisors:[{usuario:"Erik",nombre:"Erik (demo)",requierePassword:false,password:""}],careers:["Seleccione","IAEV","ICM","IRC","ITIID","LTF","ISA"],groups:["Seleccione","IAEV-PA-08","IAEV-PA-07","ITIID-IA-02","ITIID-SM-02","ISA-SA-06","ICM-CYM-03","IRC-MPR-02","LTF 08","SW 28"],subjects:["Seleccione","Matemáticas","Física","Cálculo","Estadística","Programación","Álgebra"],reasons:["Seleccione","Motivos académicos","Motivos familiares","Motivos personales","Motivos sociales"],sexos:["Seleccione","Hombre","Mujer"],turnos:["Seleccione","Matutino","Vespertino"]};
-const $=s=>document.querySelector(s),KEY="asesorias_demo";let currentStart=null,timerId=null,remoteConfig=null,remoteRecords=null;
+const $=s=>document.querySelector(s),KEY="asesorias_demo",BRIDGE_MODE=new URLSearchParams(location.search).get("bridge")==="1";let currentStart=null,timerId=null,remoteConfig=null,remoteRecords=null;
 function appConfig(){
   if(remoteConfig)return remoteConfig;
   let school={}; let cats={}; let periods=[];
@@ -238,7 +238,7 @@ async function logout(){
   showLogin();
 }
 
-document.addEventListener("DOMContentLoaded",async()=>{await loadRemoteConfig();const C=appConfig();if($("schoolName"))$("schoolName").textContent=C.schoolName;if($("periodName"))$("periodName").textContent=C.period;if($("advisorName"))$("advisorName").textContent="";fill("carrera",C.careers);fill("grupo",C.groups);fill("materia",C.subjects);fill("motivo",C.reasons);fill("turno",C.turnos||["Seleccione","Matutino","Vespertino"]);fill("sexo",C.sexos);if($("periodFilter"))$("periodFilter").innerHTML=`<option value="all">Todos los cuatrimestres</option>`+C.periods.map(p=>`<option value="${p}">${p}</option>`).join("");setStudentFields(false);renderHistory();
+document.addEventListener("DOMContentLoaded",async()=>{if(BRIDGE_MODE)return;await loadRemoteConfig();const C=appConfig();if($("schoolName"))$("schoolName").textContent=C.schoolName;if($("periodName"))$("periodName").textContent=C.period;if($("advisorName"))$("advisorName").textContent="";fill("carrera",C.careers);fill("grupo",C.groups);fill("materia",C.subjects);fill("motivo",C.reasons);fill("turno",C.turnos||["Seleccione","Matutino","Vespertino"]);fill("sexo",C.sexos);if($("periodFilter"))$("periodFilter").innerHTML=`<option value="all">Todos los cuatrimestres</option>`+C.periods.map(p=>`<option value="${p}">${p}</option>`).join("");setStudentFields(false);renderHistory();
 await restoreRemoteSession();applySession();if(currentUser())await loadRemoteAdvisories();
 $("#loginBtn")?.addEventListener("click",doLogin);
 $("#loginUser")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("#loginPassword")?.focus()}});

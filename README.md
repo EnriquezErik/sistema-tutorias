@@ -2,6 +2,13 @@
 
 Esta versión guarda en PostgreSQL los alumnos, las asesorías y el historial personal de cada asesor.
 
+## Corrección v34: aislamiento del puente administrativo
+
+- `index.html?bridge=1` conserva únicamente su función de sincronización local.
+- El puente oculto de `admin.html` ya no ejecuta el acceso, la restauración ni el cierre de sesión del asesor.
+- Mantener abierta o actualizar la Administración ya no puede borrar la sesión del asesor en otra pestaña.
+- No se modificaron formularios, catálogos, reportes, estadísticas ni estructura de PostgreSQL.
+
 ## Novedad v33: persistencia integral de sesión
 
 - Se revisó el flujo completo entre `index.html`, `app.js` y `server.js`.
