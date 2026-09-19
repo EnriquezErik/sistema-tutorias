@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Administración · Asesorías</title>
-<link rel="stylesheet" href="styles.css?v=37">
+<link rel="stylesheet" href="styles.css?v=38">
 </head>
 <body>
 <div id="adminLoginScreen" class="login-screen">
@@ -96,7 +96,7 @@
       <section class="catalog-panel is-hidden" id="cat-asesores"><div class="catalog-head"><h3>Asesores</h3><span id="catAsesoresCount"></span></div><form class="catalog-add-row advisor-add-row visible" id="add-asesores" autocomplete="off" novalidate><label>Nombre completo<input id="newAdvisorName" name="fullName" placeholder="Escriba el nombre completo"></label><label>Usuario<input id="newAdvisorUser" name="username" placeholder="Escriba el usuario"></label><label>Contraseña (opcional)<input id="newAdvisorPassword" name="password" type="password" placeholder="Déjela vacía si no se requiere" autocomplete="new-password"></label><button class="primary small-btn" id="saveAdvisorBtn" type="submit">Agregar asesor</button><div class="advisor-form-message" id="advisorFormMessage" role="status" aria-live="polite"></div></form><input class="catalog-search" id="searchAsesores" placeholder="Buscar usuario o nombre..."><div class="table-wrap compact-table catalog-table-wrap"><table><thead><tr><th>Usuario</th><th>Nombre</th><th>Contraseña</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="catalogAsesores"></tbody></table></div></section>
       <section class="catalog-panel is-hidden" id="cat-materias"><div class="catalog-head"><h3>Materias</h3><button class="secondary small-btn" data-add="materias">Agregar</button></div><div class="catalog-add-row" id="add-materias"><input placeholder="Nueva materia"><button class="primary small-btn">Guardar</button></div><div class="catalog-list" id="catalogMaterias"></div></section>
       <section class="catalog-panel is-hidden" id="cat-carreras"><div class="catalog-head"><h3>Carreras</h3><button class="secondary small-btn" data-add="carreras">Agregar</button></div><div class="catalog-add-row" id="add-carreras"><input placeholder="Nueva carrera"><button class="primary small-btn">Guardar</button></div><div class="catalog-list" id="catalogCarreras"></div></section>
-      <section class="catalog-panel is-hidden" id="cat-grupos"><div class="catalog-head"><h3>Grupos</h3><button class="secondary small-btn" data-add="grupos">Agregar</button></div><div class="catalog-add-row" id="add-grupos"><input placeholder="Nuevo grupo"><button class="primary small-btn">Guardar</button></div><div class="catalog-list" id="catalogGrupos"></div></section>
+      <section class="catalog-panel is-hidden" id="cat-grupos"><div class="catalog-head"><h3>Grupos</h3><button class="secondary small-btn" data-add="grupos">Agregar</button></div><form class="catalog-add-row group-add-row" id="add-grupos"><label>Carrera<select id="newGroupCareer"><option value="">Seleccione</option></select></label><label>Grupo<input id="newGroupName" placeholder="Ej. IAEV-PA-06"></label><button class="primary small-btn" id="saveGroupBtn" type="submit">Guardar</button><div class="advisor-form-message" id="groupFormMessage" role="status" aria-live="polite"></div></form><div class="catalog-list growing-catalog-list" id="catalogGrupos"></div></section>
       <section class="catalog-panel is-hidden" id="cat-motivos"><div class="catalog-head"><h3>Motivos</h3><button class="secondary small-btn" data-add="motivos">Agregar</button></div><div class="catalog-add-row" id="add-motivos"><input placeholder="Nuevo motivo"><button class="primary small-btn">Guardar</button></div><div class="catalog-list" id="catalogMotivos"></div></section>
       <section class="catalog-panel is-hidden" id="cat-cuatrimestres"><div class="catalog-head"><h3>Cuatrimestres</h3><button class="secondary small-btn" data-add="cuatrimestres">Agregar</button></div><form class="catalog-add-row period-add-row" id="add-cuatrimestres"><label>Nombre<input id="newPeriodName" placeholder="Ej. Enero-Abril 2027"></label><label>Fecha inicial<input id="newPeriodStart" type="date"></label><label>Fecha final<input id="newPeriodEnd" type="date"></label><button class="primary small-btn" id="savePeriodBtn" type="submit">Guardar</button><div class="advisor-form-message" id="periodFormMessage" role="status" aria-live="polite"></div></form><div class="catalog-list" id="catalogCuatrimestres"></div></section>
     </div>
@@ -125,5 +125,5 @@
 <footer class="site-footer"><span id="adminFooterText">© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.</span><br><span id="adminVersion">Versión 1.6.0 · Administración</span></footer>
 <div id="adminPrintReport" class="print-only"></div>
 <iframe id="dataBridge" src="index.html?bridge=1" title="Sincronización de datos" style="display:none" aria-hidden="true"></iframe>
-<script src="admin.js?v=37"></script>
+<script src="admin.js?v=38"></script>
 </body></html>

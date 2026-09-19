@@ -60,6 +60,7 @@ Si Render o PostgreSQL no están disponibles temporalmente, la página conserva 
 - Se rechazan nombres duplicados, fechas inválidas y rangos que se traslapen con otro cuatrimestre activo.
 - El encabezado del registro, los filtros del historial y los selectores del dashboard se alimentan de la misma tabla `public.periods`. El encabezado usa el cuatrimestre activo y los filtros conservan también los periodos históricos inactivos.
 - La página del asesor vuelve a consultar los cuatrimestres al regresar a su pestaña, por lo que los cambios del administrador se reflejan sin cerrar la sesión ni presionar F5.
+- El catálogo **Grupos** guarda directamente en `public.student_groups`, sin un límite fijo de registros. Cada grupo se relaciona con una carrera, puede inactivarse sin borrar historiales y aparece en Registro de Asesorías al seleccionar la carrera correspondiente.
 - `/api/session`: confirma si existe una sesión válida.
 - `/api/students/{matrícula}`: busca al alumno para autocompletar sus datos.
 - `/api/advisories`: registra una asesoría o devuelve el historial autorizado.

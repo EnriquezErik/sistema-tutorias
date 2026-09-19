@@ -175,7 +175,7 @@ function requireAdmin(request, response) {
 async function apiAdminData(request, response) {
   if (!requireAdmin(request, response)) return;
   const session = readSession(request, "admin_session");
-  const [advisories, students, users, bootstrap, periodsAdmin] = await Promise.all([
+  const [advisories, students, users, bootstrap, periodsAdmin, groupsAdmin] = await Promise.all([
     database.query(`
       select a.id, s.enrollment::text, s.full_name as student_name, s.sex, s.shift,
              c.code::text as career_code, g.name::text as group_name,
@@ -202,12 +202,37 @@ async function apiAdminData(request, response) {
                            (recovery_code_hash is not null) as "recuperacionConfigurada"
                       from public.app_users order by role, full_name`),
     getBootstrap(),
-    database.query("select id, name, starts_on, ends_on, active from public.periods order by starts_on desc")
+    database.query("select id, name, starts_on, ends_on, active from public.periods order by starts_on desc"),
+    database.query(`select g.id, g.name::text, g.career_id, g.active, c.code::text as career_code
+                      from public.student_groups g left join public.careers c on c.id=g.career_id
+                     order by c.code nulls last, g.name`)
   ]);
   sendJson(response, 200, { ok: true, user: session, data: {
     advisories: advisories.rows.map(advisoryRow), students: students.rows, users: users.rows,
-    catalogs: bootstrap, periodsAdmin: periodsAdmin.rows
+    catalogs: bootstrap, periodsAdmin: periodsAdmin.rows, groupsAdmin: groupsAdmin.rows
   }});
+}
+
+async function apiCreateGroup(request,response){
+  if(!requireAdmin(request,response))return;
+  let body;try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false,message:"Solicitud inválida."});return}
+  const name=String(body.name||"").trim(),careerCode=String(body.careerCode||"").trim();
+  if(!name||!careerCode){sendJson(response,400,{ok:false,message:"Capture el grupo y seleccione su carrera."});return}
+  const career=await database.query("select id from public.careers where active=true and lower(code::text)=lower($1) limit 1",[careerCode]);
+  if(!career.rowCount){sendJson(response,400,{ok:false,message:"La carrera seleccionada no es válida o está inactiva."});return}
+  try{
+    const result=await database.query("insert into public.student_groups(name,career_id,active) values($1,$2,true) returning id,name::text,career_id,active",[name,career.rows[0].id]);
+    sendJson(response,201,{ok:true,group:result.rows[0]});
+  }catch(error){if(error.code==='23505'){sendJson(response,409,{ok:false,message:"Ya existe un grupo con ese nombre."});return}throw error}
+}
+
+async function apiSetGroupActive(request,response,groupId){
+  if(!requireAdmin(request,response))return;
+  let body;try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false,message:"Solicitud inválida."});return}
+  if(typeof body.active!=="boolean"){sendJson(response,400,{ok:false,message:"Indique el estado del grupo."});return}
+  const result=await database.query("update public.student_groups set active=$1,updated_at=now() where id=$2::uuid returning id,name::text,career_id,active",[body.active,groupId]);
+  if(!result.rowCount){sendJson(response,404,{ok:false,message:"No se encontró el grupo."});return}
+  sendJson(response,200,{ok:true,group:result.rows[0]});
 }
 
 async function apiCreatePeriod(request,response){
@@ -549,6 +574,22 @@ const server = http.createServer(async (request, response) => {
     if (request.method !== "POST") { sendJson(response,405,{ok:false}); return; }
     if (!database) { sendJson(response,503,{ok:false}); return; }
     try { await apiCreatePeriod(request,response); } catch(error) { console.error("Error al crear cuatrimestre:",error.message); sendJson(response,503,{ok:false,message:"No fue posible guardar el cuatrimestre."}); }
+    return;
+  }
+
+  if (requestUrl.pathname === "/api/admin/groups") {
+    if (request.method !== "POST") { sendJson(response,405,{ok:false}); return; }
+    if (!database) { sendJson(response,503,{ok:false}); return; }
+    try { await apiCreateGroup(request,response); } catch(error) { console.error("Error al crear grupo:",error.message); sendJson(response,503,{ok:false,message:"No fue posible guardar el grupo."}); }
+    return;
+  }
+
+  const adminGroupActiveMatch=requestUrl.pathname.match(/^\/api\/admin\/groups\/([^/]+)\/active$/);
+  if(adminGroupActiveMatch){
+    if(request.method!=="PATCH"){sendJson(response,405,{ok:false});return}
+    if(!database){sendJson(response,503,{ok:false});return}
+    try{await apiSetGroupActive(request,response,decodeURIComponent(adminGroupActiveMatch[1]));}
+    catch(error){console.error("Error al cambiar estado del grupo:",error.message);sendJson(response,503,{ok:false,message:"No fue posible actualizar el grupo."});}
     return;
   }
 

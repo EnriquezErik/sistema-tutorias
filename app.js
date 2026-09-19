@@ -60,7 +60,7 @@ function applyPeriodCatalog(){
 async function refreshPeriodCatalog(){
   if(refreshingPeriodCatalog)return;
   refreshingPeriodCatalog=true;
-  try{if(await loadRemoteConfig()){applyPeriodCatalog();renderHistory()}}finally{refreshingPeriodCatalog=false}
+  try{if(await loadRemoteConfig()){applyPeriodCatalog();updateGroupsForCareer(true);renderHistory()}}finally{refreshingPeriodCatalog=false}
 }
 
 function localRecords(){return JSON.parse(localStorage.getItem(KEY)||"[]")}
@@ -68,7 +68,7 @@ function recordsForAdvisor(rows,username){const user=String(username||'').trim()
 function records(){if(Array.isArray(remoteRecords))return remoteRecords;return recordsForAdvisor(localRecords(),currentUser()?.usuario)}
 function saveRecords(r){localStorage.setItem(KEY,JSON.stringify(r))}function students(){return JSON.parse(localStorage.getItem("alumnos_demo")||"[]")}function saveStudents(r){localStorage.setItem("alumnos_demo",JSON.stringify(r))}
 function fill(id,arr){const e=$("#"+id);if(e)e.innerHTML=arr.map(x=>`<option>${x}</option>`).join("")}
-function updateGroupsForCareer(){const career=$("#carrera")?.value;if(!remoteConfig?.groupsByCareer||!career||career==="Seleccione")return;fill("grupo",["Seleccione",...(remoteConfig.groupsByCareer[career]||[])])}
+function updateGroupsForCareer(preserveSelection=false){const career=$("#carrera")?.value,group=$("#grupo"),previous=group?.value;if(!remoteConfig?.groupsByCareer||!career||career==="Seleccione")return;fill("grupo",["Seleccione",...(remoteConfig.groupsByCareer[career]||[])]);if(preserveSelection&&group&&Array.from(group.options).some(option=>option.value===previous))group.value=previous}
 function setStudentFields(editable){["sexo","carrera","grupo","turno"].forEach(id=>$("#"+id).disabled=!editable);$("#nombre").readOnly=!editable}
 function showFoundStudent(f){$("#nombre").value=f.nombre||f.full_name||"";$("#sexo").value=f.sexo||f.sex||"";$("#carrera").value=f.carrera||f.career||appConfig().careers[0];updateGroupsForCareer();$("#grupo").value=f.grupo||f.group_name||appConfig().groups[0];$("#turno").value=f.turno||f.shift||"Matutino";setStudentFields(false);$("#status").textContent="ALUMNO ENCONTRADO"}
 function showNewStudent(){$("#nombre").value="";$("#sexo").value="Seleccione";$("#carrera").value="Seleccione";$("#grupo").value="Seleccione";$("#turno").value="Seleccione";setStudentFields(true);$("#status").textContent="NUEVO ALUMNO";$("#nombre").focus();alert("Matrícula nueva. Capture los datos del alumno y seleccione el sexo.")}
