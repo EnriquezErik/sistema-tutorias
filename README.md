@@ -2,6 +2,14 @@
 
 Esta versión guarda en PostgreSQL los alumnos, las asesorías y el historial personal de cada asesor.
 
+## Novedad v33: persistencia integral de sesión
+
+- Se revisó el flujo completo entre `index.html`, `app.js` y `server.js`.
+- La autenticación persistente se conserva tanto en la cookie segura como en un token firmado de respaldo.
+- Todas las operaciones privadas del asesor validan el mismo token después de `F5` o `Ctrl + F5`.
+- El token no permite utilizar cuentas inactivas: el servidor consulta su estado en PostgreSQL en cada operación privada.
+- **Cerrar sesión** elimina la sesión local, el token de respaldo y la cookie del servidor.
+
 ## Novedad v32: sesión persistente del asesor
 
 - La sesión permanece abierta al recargar con `F5` o `Ctrl + F5`.

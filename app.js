@@ -75,7 +75,7 @@ async function finishSession(){
   $("#finalizar").disabled=true;$("#status").textContent="GUARDANDO...";
   let savedRemote=false,useLocalBackup=false;
   try{
-    const response=await fetch("/api/advisories",{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({...record,inicio:record.inicioIso,fin:record.finIso})});
+    const response=await fetch("/api/advisories",{method:"POST",headers:advisorHeaders({"Content-Type":"application/json"}),body:JSON.stringify({...record,inicio:record.inicioIso,fin:record.finIso})});
     const payload=await response.json().catch(()=>({}));
     if(response.ok)savedRemote=true;
     else if(response.status===400){$("#finalizar").disabled=false;$("#status").textContent="REVISE LOS DATOS";alert(payload.message||"Revise los datos de la asesoría.");return}
@@ -96,7 +96,7 @@ function exportCSV(){const h=["Fecha","Inicio","Fin","Matrícula","Alumno","Sexo
 
 async function loadRemoteAdvisories(){
   try{
-    const response=await fetch("/api/advisories",{headers:{Accept:"application/json"}});
+    const response=await fetch("/api/advisories",{headers:advisorHeaders()});
     if(!response.ok)return false;
     const payload=await response.json();
     const databaseRecords=(payload.advisories||[]).map(x=>{const start=new Date(x.inicioIso),end=new Date(x.finIso);return {...x,fecha:start.toLocaleDateString("es-MX"),inicio:start.toLocaleTimeString("es-MX"),fin:end.toLocaleTimeString("es-MX")}});
@@ -107,13 +107,16 @@ async function loadRemoteAdvisories(){
   }catch(error){return false}
 }
 
-const USER_KEY="asesor_users_demo",SESSION_KEY="asesor_session_persistente",SESSION_BACKUP_KEY="asesor_session_backup";
-function savePersistentSession(session){
+const USER_KEY="asesor_users_demo",SESSION_KEY="asesor_session_persistente",SESSION_BACKUP_KEY="asesor_session_backup",SESSION_TOKEN_KEY="asesor_session_token";
+function sessionToken(){try{return localStorage.getItem(SESSION_TOKEN_KEY)||""}catch(e){return ""}}
+function advisorHeaders(extra={}){const token=sessionToken();return {Accept:"application/json",...(token?{Authorization:`Bearer ${token}`} : {}),...extra}}
+function savePersistentSession(session,token=""){
   const data=JSON.stringify({...session,recordada:true});
   // La sesión queda guardada sin fecha de caducidad. Solo logout() la elimina.
   try{
     localStorage.setItem(SESSION_KEY,data);
     localStorage.setItem(SESSION_BACKUP_KEY,data);
+    if(token)localStorage.setItem(SESSION_TOKEN_KEY,token);
   }catch(e){}
   try{
     document.cookie="asesor_session_local="+encodeURIComponent(data)+"; Max-Age=315360000; path=/; SameSite=Lax";
@@ -173,7 +176,7 @@ async function doLogin(){
     const response=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({username:user,password:pass})});
     const payload=await response.json().catch(()=>({}));
     if(response.ok&&payload.user){
-      savePersistentSession(payload.user);
+      savePersistentSession(payload.user,payload.sessionToken);
       remoteRecords=[];
       if(msg)msg.textContent="";
       applySession();renderHistory();hideLogin();await loadRemoteAdvisories();return;
@@ -196,16 +199,17 @@ async function doLogin(){
 async function restoreRemoteSession(){
   const savedSession=currentUser();
   try{
-    const response=await fetch("/api/session",{headers:{Accept:"application/json"}});
+    const response=await fetch("/api/session",{headers:advisorHeaders()});
     if(response.status===401&&savedSession?.usuario){
       // Si Edge no envió la cookie al recargar, restablece silenciosamente las
       // cuentas que no requieren contraseña usando la sesión local recordada.
       const retry=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({username:savedSession.usuario,password:""})});
       const retryPayload=await retry.json().catch(()=>({}));
-      if(retry.ok&&retryPayload.user){savePersistentSession(retryPayload.user);return true}
+      if(retry.ok&&retryPayload.user){savePersistentSession(retryPayload.user,retryPayload.sessionToken);return true}
     }
     if(response.status===401||response.status===403){
       localStorage.removeItem(SESSION_KEY);localStorage.removeItem(SESSION_BACKUP_KEY);
+      localStorage.removeItem(SESSION_TOKEN_KEY);
       document.cookie="asesor_session_local=; Max-Age=0; path=/; SameSite=Lax";
       return false;
     }
@@ -223,9 +227,10 @@ function applySession(){
   document.title="Registro de Asesorías · "+u.usuario;
 }
 async function logout(){
-  try{await fetch("/api/logout",{method:"POST",headers:{Accept:"application/json"}})}catch(error){}
+  try{await fetch("/api/logout",{method:"POST",headers:advisorHeaders()})}catch(error){}
   localStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(SESSION_BACKUP_KEY);
+  localStorage.removeItem(SESSION_TOKEN_KEY);
   document.cookie="asesor_session_local=; Max-Age=0; path=/; SameSite=Lax";
   remoteRecords=null;
   clearInterval(timerId); timerId=null; currentStart=null;

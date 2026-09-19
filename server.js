@@ -74,21 +74,24 @@ function signSession(user) {
   return `${payload}.${signature}`;
 }
 
+function verifySessionToken(token){
+  if(!token)return null;
+  const [payload,signature]=token.split(".");
+  if(!payload||!signature)return null;
+  const expected=crypto.createHmac("sha256",SESSION_SECRET).update(payload).digest("base64url");
+  const actualBuffer=Buffer.from(signature),expectedBuffer=Buffer.from(expected);
+  if(actualBuffer.length!==expectedBuffer.length||!crypto.timingSafeEqual(actualBuffer,expectedBuffer))return null;
+  try{const session=JSON.parse(Buffer.from(payload,"base64url").toString("utf8"));return session.exp>Date.now()?session:null}catch(error){return null}
+}
+
 function readSession(request, cookieName = "advisor_session") {
-  const token = parseCookies(request)[cookieName];
-  if (!token) return null;
-  const [payload, signature] = token.split(".");
-  if (!payload || !signature) return null;
-  const expected = crypto.createHmac("sha256", SESSION_SECRET).update(payload).digest("base64url");
-  const actualBuffer = Buffer.from(signature);
-  const expectedBuffer = Buffer.from(expected);
-  if (actualBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(actualBuffer, expectedBuffer)) return null;
-  try {
-    const session = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
-    return session.exp > Date.now() ? session : null;
-  } catch (error) {
-    return null;
-  }
+  const cookieToken = parseCookies(request)[cookieName] || "";
+  const authorization = String(request.headers.authorization || "");
+  const bearerToken = cookieName === "advisor_session" && authorization.startsWith("Bearer ")
+    ? authorization.slice(7).trim()
+    : "";
+  for(const token of [cookieToken,bearerToken]){const session=verifySessionToken(token);if(session)return session}
+  return null;
 }
 
 async function isActiveAdvisorSession(session){
@@ -161,7 +164,11 @@ async function apiLogin(request, response) {
   const token = signSession(user);
   const cookieName = area === "admin" ? "admin_session" : "advisor_session";
   response.setHeader("Set-Cookie", `${cookieName}=${encodeURIComponent(token)}; Max-Age=31536000; Path=/; HttpOnly; Secure; SameSite=Lax`);
-  sendJson(response, 200, { ok: true, user: { usuario: user.username, nombre: user.full_name, rol: user.role } });
+  sendJson(response, 200, {
+    ok: true,
+    user: { usuario: user.username, nombre: user.full_name, rol: user.role },
+    ...(area === "advisor" ? { sessionToken: token } : {})
+  });
 }
 
 function requireAdmin(request, response) {
