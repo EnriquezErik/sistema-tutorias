@@ -10,6 +10,13 @@ Esta versión corrige la separación de datos que ocurre al abrir `index.html` y
 
 Configuración institucional no aparece como sección independiente en Administración.
 
+## Publicación en Render
+1. Suba todos los archivos de esta carpeta al repositorio.
+2. Use `yarn install` como **Build Command**.
+3. Use `node server.js` o `yarn start` como **Start Command**.
+
+El servidor utiliza automáticamente el puerto asignado por Render. Para una prueba local, ejecute `node server.js` y abra `http://localhost:3000`.
+
 
 Actualización v20 - Estadísticas Excel:
 - Se retiró el botón y código exclusivo de Imprimir estadísticas.
