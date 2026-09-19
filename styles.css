@@ -99,3 +99,4 @@
 
 .advisor-add-row.visible{display:grid;grid-template-columns:1.3fr 1fr 1fr auto;align-items:center}
 @media(max-width:800px){.advisor-add-row.visible{grid-template-columns:1fr}}
+.security-settings{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr)) auto;gap:10px;align-items:end}.security-settings input{padding:8px}.security-settings button{white-space:nowrap}.login-card [hidden]{display:none!important}.login-card .secondary.login-btn{margin-top:8px}.admin-head-actions #adminCurrentUser{white-space:nowrap;font-weight:700}@media(max-width:1000px){.security-settings{grid-template-columns:1fr 1fr}.security-settings button{grid-column:1/-1}}@media(max-width:600px){.security-settings{grid-template-columns:1fr}}

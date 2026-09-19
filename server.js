@@ -74,8 +74,8 @@ function signSession(user) {
   return `${payload}.${signature}`;
 }
 
-function readSession(request) {
-  const token = parseCookies(request).advisor_session;
+function readSession(request, cookieName = "advisor_session") {
+  const token = parseCookies(request)[cookieName];
   if (!token) return null;
   const [payload, signature] = token.split(".");
   if (!payload || !signature) return null;
@@ -136,6 +136,7 @@ async function apiLogin(request, response) {
   catch (error) { sendJson(response, 400, { ok: false, code: error.message }); return; }
   const username = String(body.username || "").trim();
   const password = String(body.password || "");
+  const area = body.area === "admin" ? "admin" : "advisor";
   if (!username) { sendJson(response, 400, { ok: false, code: "username_required" }); return; }
 
   const result = await database.query(
@@ -148,10 +149,97 @@ async function apiLogin(request, response) {
     sendJson(response, 401, { ok: false, code: "invalid_credentials", message: "Usuario o contraseña incorrectos." });
     return;
   }
+  if (area === "admin" && user.role !== "admin") { sendJson(response,403,{ok:false,code:"admin_required",message:"Este usuario no tiene permisos de administración."}); return; }
+  if (area === "advisor" && user.role !== "advisor") { sendJson(response,403,{ok:false,code:"advisor_required",message:"Este usuario corresponde al área administrativa."}); return; }
 
   const token = signSession(user);
-  response.setHeader("Set-Cookie", `advisor_session=${encodeURIComponent(token)}; Max-Age=31536000; Path=/; HttpOnly; Secure; SameSite=Lax`);
+  const cookieName = area === "admin" ? "admin_session" : "advisor_session";
+  response.setHeader("Set-Cookie", `${cookieName}=${encodeURIComponent(token)}; Max-Age=31536000; Path=/; HttpOnly; Secure; SameSite=Lax`);
   sendJson(response, 200, { ok: true, user: { usuario: user.username, nombre: user.full_name, rol: user.role } });
+}
+
+function requireAdmin(request, response) {
+  const session = readSession(request, "admin_session");
+  if (!session) { sendJson(response, 401, { ok: false, code: "unauthorized" }); return null; }
+  if (session.rol !== "admin") { sendJson(response, 403, { ok: false, code: "admin_required" }); return null; }
+  return session;
+}
+
+async function apiAdminData(request, response) {
+  if (!requireAdmin(request, response)) return;
+  const session = readSession(request, "admin_session");
+  const [advisories, students, users, bootstrap] = await Promise.all([
+    database.query(`
+      select a.id, s.enrollment::text, s.full_name as student_name, s.sex, s.shift,
+             c.code::text as career_code, g.name::text as group_name,
+             sub.name::text as subject_name, r.name::text as reason_name,
+             p.name as period_name, u.username::text as advisor_username,
+             a.comments, a.referred_to_psychopedagogy, a.started_at, a.ended_at,
+             a.duration_minutes, a.status, a.created_at
+        from public.advisories a
+        join public.students s on s.id = a.student_id
+        join public.careers c on c.id = s.career_id
+        join public.student_groups g on g.id = s.group_id
+        join public.subjects sub on sub.id = a.subject_id
+        join public.advisory_reasons r on r.id = a.reason_id
+        join public.periods p on p.id = a.period_id
+        join public.app_users u on u.id = a.advisor_id
+       order by a.started_at desc limit 5000
+    `),
+    database.query(`select s.enrollment::text as matricula, s.full_name as nombre, s.sex as sexo,
+                           c.code::text as carrera, g.name::text as grupo, s.shift as turno
+                      from public.students s join public.careers c on c.id=s.career_id
+                      join public.student_groups g on g.id=s.group_id where s.active=true order by s.full_name`),
+    database.query(`select username::text as usuario, full_name as nombre, role as rol, active as activo,
+                           (password_hash is not null) as "requierePassword",
+                           (recovery_code_hash is not null) as "recuperacionConfigurada"
+                      from public.app_users order by role, full_name`),
+    getBootstrap()
+  ]);
+  sendJson(response, 200, { ok: true, user: session, data: {
+    advisories: advisories.rows.map(advisoryRow), students: students.rows, users: users.rows,
+    catalogs: bootstrap
+  }});
+}
+
+async function apiAccountSecurity(request, response) {
+  const session = requireAdmin(request, response); if (!session) return;
+  let body; try { body = await readJsonBody(request); } catch (error) { sendJson(response, 400, { ok:false, code:error.message }); return; }
+  const currentPassword=String(body.currentPassword||""), newPassword=String(body.newPassword||""), recoveryCode=String(body.recoveryCode||"");
+  if (newPassword && newPassword.length < 8) { sendJson(response,400,{ok:false,message:"La contraseña debe tener al menos 8 caracteres."}); return; }
+  if (recoveryCode.length < 10) { sendJson(response,400,{ok:false,message:"La clave de recuperación debe tener al menos 10 caracteres."}); return; }
+  const result=await database.query("select password_hash from public.app_users where id=$1 and active=true",[session.id]);
+  const user=result.rows[0]; if(!user){sendJson(response,401,{ok:false});return}
+  if(user.password_hash && !await bcrypt.compare(currentPassword,user.password_hash)){sendJson(response,401,{ok:false,message:"La contraseña actual es incorrecta."});return}
+  const passwordHash=newPassword?await bcrypt.hash(newPassword,12):null;
+  const recoveryHash=await bcrypt.hash(recoveryCode,12);
+  await database.query("update public.app_users set password_hash=$1,recovery_code_hash=$2 where id=$3",[passwordHash,recoveryHash,session.id]);
+  sendJson(response,200,{ok:true,message:newPassword?"Contraseña y recuperación configuradas.":"Acceso sin contraseña y recuperación configurada."});
+}
+
+async function apiRecoverAccess(request,response){
+  let body; try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false});return}
+  const username=String(body.username||"").trim(), recoveryCode=String(body.recoveryCode||""), newPassword=String(body.newPassword||"");
+  if(!username||recoveryCode.length<10||newPassword.length<8){sendJson(response,400,{ok:false,message:"Complete los datos; la contraseña nueva requiere 8 caracteres."});return}
+  const result=await database.query("select id,recovery_code_hash from public.app_users where active=true and role='admin' and lower(username::text)=lower($1) limit 1",[username]);
+  const user=result.rows[0];
+  if(!user||!user.recovery_code_hash||!await bcrypt.compare(recoveryCode,user.recovery_code_hash)){sendJson(response,401,{ok:false,message:"Usuario o clave de recuperación incorrectos."});return}
+  const passwordHash=await bcrypt.hash(newPassword,12);
+  await database.query("update public.app_users set password_hash=$1,recovery_code_hash=null where id=$2",[passwordHash,user.id]);
+  sendJson(response,200,{ok:true,message:"Contraseña restablecida. Ingrese y configure una nueva clave de recuperación."});
+}
+
+async function apiCreateUser(request,response){
+  if(!requireAdmin(request,response))return;
+  let body;try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false});return}
+  const username=String(body.username||"").trim(),fullName=String(body.fullName||"").trim(),password=String(body.password||"");
+  if(!username||!fullName){sendJson(response,400,{ok:false,message:"Capture nombre y usuario."});return}
+  if(password&&password.length<8){sendJson(response,400,{ok:false,message:"La contraseña debe tener al menos 8 caracteres o quedar vacía."});return}
+  const hash=password?await bcrypt.hash(password,12):null;
+  try{
+    await database.query("insert into public.app_users(username,full_name,password_hash,role,active) values($1,$2,$3,'advisor',true)",[username,fullName,hash]);
+    sendJson(response,201,{ok:true});
+  }catch(error){if(error.code==='23505'){sendJson(response,409,{ok:false,message:"Ese usuario ya existe."});return}throw error}
 }
 
 function requireSession(request, response) {
@@ -375,11 +463,52 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  if (requestUrl.pathname === "/api/admin/session") {
+    if (request.method !== "GET") { sendJson(response, 405, { ok: false }); return; }
+    const session = readSession(request, "admin_session");
+    sendJson(response, session && session.rol === "admin" ? 200 : 401, session && session.rol === "admin" ? { ok:true,user:session } : { ok:false });
+    return;
+  }
+
+  if (requestUrl.pathname === "/api/admin/data") {
+    if (request.method !== "GET") { sendJson(response,405,{ok:false}); return; }
+    if (!database) { sendJson(response,503,{ok:false,code:"database_not_configured"}); return; }
+    try { await apiAdminData(request,response); } catch(error) { console.error("Error administrativo:",error.message); sendJson(response,503,{ok:false,code:"database_error"}); }
+    return;
+  }
+
+  if (requestUrl.pathname === "/api/admin/security") {
+    if (request.method !== "POST") { sendJson(response,405,{ok:false}); return; }
+    if (!database) { sendJson(response,503,{ok:false}); return; }
+    try { await apiAccountSecurity(request,response); } catch(error) { console.error("Error de seguridad:",error.message); sendJson(response,503,{ok:false}); }
+    return;
+  }
+
+  if (requestUrl.pathname === "/api/admin/recover") {
+    if (request.method !== "POST") { sendJson(response,405,{ok:false}); return; }
+    if (!database) { sendJson(response,503,{ok:false}); return; }
+    try { await apiRecoverAccess(request,response); } catch(error) { console.error("Error de recuperación:",error.message); sendJson(response,503,{ok:false}); }
+    return;
+  }
+
+  if (requestUrl.pathname === "/api/admin/users") {
+    if (request.method !== "POST") { sendJson(response,405,{ok:false}); return; }
+    if (!database) { sendJson(response,503,{ok:false}); return; }
+    try { await apiCreateUser(request,response); } catch(error) { console.error("Error al crear usuario:",error.message); sendJson(response,503,{ok:false}); }
+    return;
+  }
+
   if (requestUrl.pathname === "/api/logout") {
     if (request.method !== "POST") { sendJson(response, 405, { ok: false }); return; }
     response.setHeader("Set-Cookie", "advisor_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax");
     sendJson(response, 200, { ok: true });
     return;
+  }
+
+  if (requestUrl.pathname === "/api/admin/logout") {
+    if (request.method !== "POST") { sendJson(response,405,{ok:false}); return; }
+    response.setHeader("Set-Cookie", "admin_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax");
+    sendJson(response,200,{ok:true}); return;
   }
 
   const studentMatch = requestUrl.pathname.match(/^\/api\/students\/([^/]+)$/);

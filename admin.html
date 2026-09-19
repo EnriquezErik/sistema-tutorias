@@ -6,14 +6,33 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<div id="adminLoginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="login-logo">LOGO</div><h1>Administración</h1><p class="login-subtitle">Acceso exclusivo del administrador</p>
+    <div id="adminLoginForm">
+      <label>Usuario<input id="adminLoginUser" autocomplete="username" placeholder="Administrador"></label>
+      <label>Contraseña<input id="adminLoginPassword" type="password" autocomplete="current-password" placeholder="Opcional mientras no esté configurada"></label>
+      <button id="adminLoginBtn" class="primary login-btn">INGRESAR</button>
+      <button id="showRecoveryBtn" class="secondary login-btn" type="button">Recuperar acceso</button>
+    </div>
+    <div id="adminRecoveryForm" hidden>
+      <label>Usuario<input id="recoveryUser" placeholder="Administrador"></label>
+      <label>Clave de recuperación<input id="recoveryCode" type="password" autocomplete="off"></label>
+      <label>Contraseña nueva<input id="recoveryNewPassword" type="password" minlength="8"></label>
+      <button id="recoverAccessBtn" class="primary login-btn" type="button">RESTABLECER CONTRASEÑA</button>
+      <button id="backToLoginBtn" class="secondary login-btn" type="button">Volver al acceso</button>
+    </div>
+    <div id="adminLoginMsg" class="login-msg" aria-live="polite"></div>
+  </div>
+</div>
 <header class="topbar admin-topbar">
   <div class="logo">LOGO IZQ.</div>
   <div class="school"><h1 id="adminSchoolName">NOMBRE DE LA INSTITUCIÓN</h1><div>ADMINISTRACIÓN DEL SISTEMA DE ASESORÍAS</div></div>
-  <div class="admin-head-actions"><div class="logo">LOGO DER.</div></div>
+  <div class="admin-head-actions"><span id="adminCurrentUser" class="muted"></span><button id="adminLogoutBtn" class="logout-btn">Cerrar sesión</button><div class="logo">LOGO DER.</div></div>
 </header>
 
 <nav class="admin-nav" aria-label="Navegación administrativa">
-  <a href="#dashboard">Inicio</a><a href="#estadisticas">Estadísticas</a><a href="#reportes">Historial y reportes</a><a href="#catalogos">Catálogos</a><button type="button" id="syncDataBtn" class="secondary">Actualizar datos</button>
+  <a href="#dashboard">Inicio</a><a href="#estadisticas">Estadísticas</a><a href="#reportes">Historial y reportes</a><a href="#catalogos">Catálogos</a><a href="#seguridad">Seguridad</a><button type="button" id="syncDataBtn" class="secondary">Actualizar datos</button>
 </nav>
 
 <main class="container admin-container">
@@ -67,7 +86,7 @@
 
   <section class="card" id="catalogos">
     <div class="section-title">Catálogos</div>
-    <div class="muted catalog-intro">Seleccione un catálogo para administrarlo. Los cambios de esta versión se guardan en este navegador y quedan disponibles para el formulario.</div>
+    <div class="muted catalog-intro">Alumnos y asesores se consultan desde PostgreSQL. La edición central de los demás catálogos se incorporará gradualmente.</div>
     <div class="catalog-current" id="catalogCurrent">Catálogo seleccionado: <strong>Alumnos</strong></div>
     <div class="catalog-grid admin-catalog-nav">
       <button class="secondary" data-target="cat-alumnos">Alumnos</button><button class="secondary" data-target="cat-asesores">Asesores</button><button class="secondary" data-target="cat-materias">Materias</button><button class="secondary" data-target="cat-carreras">Carreras</button><button class="secondary" data-target="cat-grupos">Grupos</button><button class="secondary" data-target="cat-motivos">Motivos</button><button class="secondary" data-target="cat-cuatrimestres">Cuatrimestres</button>
@@ -88,9 +107,22 @@
     <div class="muted section-note">Se muestran 10 alumnos a la vez; use el desplazamiento para consultar los demás.</div>
     <div class="table-wrap student-summary-wrap compact-table"><table><thead><tr><th>Matrícula</th><th>Alumno</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="byStudent"></tbody></table></div>
   </section>
+
+  <section class="card" id="seguridad">
+    <div class="section-title">Seguridad de la cuenta administrativa</div>
+    <div class="muted section-note">Puede conservar el acceso sin contraseña durante el prototipo. Configure siempre una clave de recuperación de al menos 10 caracteres y guárdela en un lugar seguro.</div>
+    <div class="security-settings">
+      <label>Contraseña actual<input id="currentAdminPassword" type="password" autocomplete="current-password" placeholder="Déjela vacía si todavía no existe"></label>
+      <label>Contraseña nueva<input id="newAdminPassword" type="password" minlength="8" autocomplete="new-password" placeholder="Opcional; mínimo 8 caracteres"></label>
+      <label>Confirmar contraseña<input id="confirmAdminPassword" type="password" minlength="8" autocomplete="new-password"></label>
+      <label>Clave de recuperación<input id="newRecoveryCode" type="password" minlength="10" autocomplete="off" placeholder="Mínimo 10 caracteres"></label>
+      <button id="saveAdminSecurityBtn" class="primary" type="button">Guardar seguridad</button>
+    </div>
+    <div id="securityMsg" class="muted" aria-live="polite"></div>
+  </section>
 </main>
 
-<footer class="site-footer"><span id="adminFooterText">© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.</span><br><span id="adminVersion">Versión 1.4.0 · Administración</span></footer>
+<footer class="site-footer"><span id="adminFooterText">© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.</span><br><span id="adminVersion">Versión 1.6.0 · Administración</span></footer>
 <div id="adminPrintReport" class="print-only"></div>
 <iframe id="dataBridge" src="index.html?bridge=1" title="Sincronización de datos" style="display:none" aria-hidden="true"></iframe>
 <script src="admin.js"></script>

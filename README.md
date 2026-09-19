@@ -1,6 +1,26 @@
-# Sistema de Asesorías Académicas · prototipo v24
+# Sistema de Asesorías Académicas · prototipo v25
 
 Esta versión guarda en PostgreSQL los alumnos, las asesorías y el historial personal de cada asesor.
+
+## Novedades de Administración
+
+- Cuenta independiente `Administrador`, inicialmente sin contraseña.
+- Sesión administrativa persistente y separada de la sesión del asesor.
+- Historial, estadísticas, alumnos y asesores cargados desde PostgreSQL.
+- Creación central de nuevos asesores con contraseña opcional.
+- Configuración posterior de contraseña administrativa.
+- Clave de recuperación almacenada únicamente como hash bcrypt.
+- Recuperación de contraseña desde la pantalla de acceso.
+- La clave de recuperación queda invalidada después de utilizarse y debe configurarse nuevamente.
+
+## Paso obligatorio antes de publicar
+
+1. Abra **Supabase → SQL Editor → New query**.
+2. Copie y ejecute todo el archivo `002_acceso_administrador.sql`.
+3. Confirme que el resultado muestre el usuario `Administrador` con rol `admin`.
+4. Después suba los archivos de esta versión a GitHub.
+
+La primera entrada a `admin.html` se realiza con el usuario `Administrador` y la contraseña vacía. Inmediatamente después configure una clave de recuperación desde la sección **Seguridad**. La contraseña puede permanecer vacía durante el prototipo.
 
 ## Qué ya utiliza la base de datos
 
