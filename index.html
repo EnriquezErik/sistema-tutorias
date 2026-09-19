@@ -1,0 +1,71 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Registro de Asesorías</title><link rel="stylesheet" href="styles.css"></head>
+<body>
+<div id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="login-logo">LOGO</div>
+    <h1>Registro de Asesorías</h1>
+    <p class="login-subtitle">Acceso de asesor</p>
+    <label>Usuario
+      <input id="loginUser" type="text" autocomplete="username" placeholder="Escriba su usuario">
+    </label>
+    <label id="passwordWrap">Contraseña
+      <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Contraseña">
+    </label>
+    <button id="loginBtn" class="primary login-btn">INGRESAR</button>
+    <div id="loginMsg" class="login-msg"></div>
+  </div>
+</div>
+<header class="topbar"><div class="logo">LOGO IZQ.</div><div class="school"><h1>NOMBRE DE LA INSTITUCIÓN</h1><div>REGISTRO DE ASESORÍAS · <span id="periodName">Septiembre-Diciembre 2026</span></div></div><div class="logo">LOGO DER.</div></header>
+<main class="container"><section class="card"><div class="section-title">Asesoría actual</div><div class="advisor-line"><button id="logoutBtn" class="secondary logout-btn">Cerrar sesión</button><strong>Asesor:</strong> <span id="advisorName">Erik (demo)</span><span class="status" id="status">SIN INICIAR</span></div>
+<div class="grid">
+<label>Matrícula<div class="input-row"><input id="matricula" placeholder="Ej. 20260001"><button class="secondary" id="buscar">Buscar</button></div></label>
+<label>Nombre completo<input id="nombre" readonly></label>
+<label>Sexo<select id="sexo" disabled><option value="">Seleccione</option><option>Hombre</option><option>Mujer</option></select></label>
+<label>Carrera<select id="carrera" disabled></select></label><label>Grupo<select id="grupo" disabled></select></label>
+<label>Turno<select id="turno" disabled><option>Matutino</option><option>Vespertino</option></select></label>
+<label>Materia<select id="materia"></select></label><label>Motivo<select id="motivo"></select></label>
+<label>Canalización a psicopedagogía<select id="psico"><option>No</option><option>Sí</option></select></label>
+<label class="full">Comentarios<textarea id="comentarios" rows="3" placeholder="Escriba las observaciones de la asesoría..."></textarea></label></div>
+<div class="actions"><button class="primary" id="iniciar">INICIAR ASESORÍA</button><div class="timer" id="timer">00:00:00</div><button class="danger" id="finalizar" disabled>FIN DE ASESORÍA</button></div>
+<p class="hint">La fecha y hora de inicio y término se registran automáticamente.</p></section>
+<section class="card"><div class="toolbar"><div><div class="section-title">Historial de asesorías</div><div class="muted">Los registros finalizados no se eliminan.</div></div><div class="filters"><select id="periodFilter"><option value="all">Todos los cuatrimestres</option></select><select id="rangeFilter"><option value="all">Todos</option><option value="day">Hoy</option><option value="week">Esta semana</option><option value="month">Este mes</option><option value="quarter">Por cuatrimestre</option></select><button class="secondary" id="export">Exportar CSV</button><button class="secondary" id="print">Imprimir</button></div></div>
+<div class="table-wrap history-table-wrap"><table id="history"><thead><tr><th>Fecha</th><th>Inicio</th><th>Fin</th><th>Matrícula</th><th>Alumno</th><th>Sexo</th><th>Carrera</th><th>Grupo</th><th>Materia</th><th>Motivo</th><th>Comentarios</th><th>Asesor</th><th>Duración</th><th>Psico.</th></tr></thead><tbody></tbody></table></div><div class="history-scroll-hint">Se muestran hasta 15 registros a la vez. Deslice la tabla hacia arriba o hacia abajo para consultar los demás registros.</div></section></main>
+<footer class="site-footer">© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.<br><span>Versión 1.0.0</span></footer>
+<section id="printReport" class="print-only">
+  <div class="print-header">
+    <div class="print-logo">LOGO IZQ.</div>
+    <div class="print-school">
+      <h1 id="printSchoolName">NOMBRE DE LA INSTITUCIÓN</h1>
+      <div id="printPeriod">REGISTRO DE ASESORÍAS · Septiembre-Diciembre 2026</div>
+    </div>
+    <div class="print-logo">LOGO DER.</div>
+  </div>
+  <div class="print-advisor"><strong>Asesor:</strong> <span id="printAdvisorName">Erik (demo)</span></div>
+  <table id="printTable">
+    <thead><tr>
+      <th>Fecha</th><th>Inicio</th><th>Fin</th><th>Matrícula</th><th>Alumno</th><th>Sexo</th>
+      <th>Carrera</th><th>Grupo</th><th>Materia</th><th>Motivo</th><th>Comentarios</th><th>Asesor</th>
+      <th>Duración</th><th>Psico.</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+</section>
+
+<script>
+(function(){
+  const isBridge=new URLSearchParams(location.search).get('bridge')==='1';
+  if(!isBridge)return;
+  document.documentElement.style.display='none';
+  function read(k,fb){try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(fb))}catch(e){return fb}}
+  function payload(){return {type:'asesorias-data',records:read('asesorias_demo',[]),students:read('alumnos_demo',[]),users:read('asesor_users_demo',[]),catalogs:read('catalogs_demo',{}),periods:read('periods_demo',[]),school:read('school_config_demo',{})};}
+  window.addEventListener('message',e=>{
+    const d=e.data||{}; if(!d||d.type!=='asesorias-request')return;
+    if(d.action==='get'){e.source?.postMessage(payload(),'*');}
+    if(d.action==='setCatalogs'){try{localStorage.setItem('catalogs_demo',JSON.stringify(d.catalogs||{}));}catch(err){}}
+    if(d.action==='setPeriods'){try{localStorage.setItem('periods_demo',JSON.stringify(d.periods||[]));}catch(err){}}
+    if(d.action==='setUsers'){try{localStorage.setItem('asesor_users_demo',JSON.stringify(d.users||[]));e.source?.postMessage(payload(),'*');}catch(err){}}
+  });
+  window.parent.postMessage({type:'asesorias-bridge-ready'},'*');
+})();
+</script>
+<script src="app.js"></script></body></html>

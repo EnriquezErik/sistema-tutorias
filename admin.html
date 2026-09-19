@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Administración · Asesorías</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar admin-topbar">
+  <div class="logo">LOGO IZQ.</div>
+  <div class="school"><h1 id="adminSchoolName">NOMBRE DE LA INSTITUCIÓN</h1><div>ADMINISTRACIÓN DEL SISTEMA DE ASESORÍAS</div></div>
+  <div class="admin-head-actions"><div class="logo">LOGO DER.</div></div>
+</header>
+
+<nav class="admin-nav" aria-label="Navegación administrativa">
+  <a href="#dashboard">Inicio</a><a href="#estadisticas">Estadísticas</a><a href="#reportes">Historial y reportes</a><a href="#catalogos">Catálogos</a><button type="button" id="syncDataBtn" class="secondary">Actualizar datos</button>
+</nav>
+
+<main class="container admin-container">
+  <section class="card admin-dashboard" id="dashboard">
+    <div class="toolbar admin-dashboard-toolbar">
+      <div><div class="section-title">Panel administrativo</div><div class="muted">Resumen del cuatrimestre seleccionado.</div></div>
+      <div class="dashboard-actions"><label class="period-picker">Cuatrimestre activo<select id="dashboardPeriod"></select></label><a class="button secondary" href="index.html">Ir a registro</a></div>
+    </div>
+    <div class="stats compact-stats six-stats">
+      <div class="stat"><span>Alumnos</span><strong id="students">0</strong></div>
+      <div class="stat"><span>Asesorías</span><strong id="sessions">0</strong></div>
+      <div class="stat"><span>Horas acumuladas</span><strong id="hours">0.00</strong></div>
+      <div class="stat"><span>Asesores</span><strong id="advisors">0</strong></div>
+      <div class="stat"><span>Materias con asesorías</span><strong id="subjectsUsed">0</strong></div>
+      <div class="stat"><span>Canalizaciones a psicopedagogía</span><strong id="referrals">0</strong></div>
+    </div>
+  </section>
+
+  <section class="card" id="estadisticas">
+    <div class="toolbar stats-toolbar"><div><div class="section-title">Estadísticas</div></div><button class="primary" id="exportStatsExcelBtn">Exportar a Excel</button></div>
+    <div class="muted section-note">Los cuadros se ajustan automáticamente al contenido para aprovechar mejor el espacio.</div>
+    <div class="admin-stats-grid">
+      <div class="stat-panel"><h3 class="sub-title">Horas por materia</h3><div class="table-wrap compact-table"><table><thead><tr><th>Materia</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="bySubject"></tbody></table></div></div>
+      <div class="stat-panel"><h3 class="sub-title">Asesorías por motivo</h3><div class="table-wrap compact-table"><table><thead><tr><th>Motivo</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="byReason"></tbody></table></div></div>
+      <div class="stat-panel"><h3 class="sub-title">Asesorías por asesor</h3><div class="table-wrap compact-table"><table><thead><tr><th>Asesor</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="byAdvisor"></tbody></table></div></div>
+      <div class="stat-panel"><h3 class="sub-title">Actividad por carrera / grupo</h3><div class="table-wrap compact-table wide-compact"><table><thead><tr><th>Carrera</th><th>Grupo</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="byGroup"></tbody></table></div></div>
+      <div class="stat-panel"><h3 class="sub-title">Canalizaciones a psicopedagogía</h3><div class="table-wrap compact-table"><table><thead><tr><th>Resultado</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="byReferral"></tbody></table></div></div>
+      <div class="stat-panel"><h3 class="sub-title">Actividad por cuatrimestre</h3><div class="table-wrap compact-table wide-compact"><table><thead><tr><th>Cuatrimestre</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="byPeriod"></tbody></table></div></div>
+    </div>
+  </section>
+
+  <section class="card" id="reportes">
+    <div class="toolbar report-toolbar">
+      <div><div class="section-title">Historial y reportes</div><div class="muted">Filtre las asesorías y después imprima o exporte únicamente los registros encontrados.</div></div>
+      <div class="report-actions"><button class="secondary" id="printReportBtn">Imprimir reporte</button><button class="primary" id="exportExcelBtn">Exportar a Excel</button></div>
+    </div>
+    <div class="admin-filters">
+      <label>Cuatrimestre<select id="adminPeriodFilter"></select></label>
+      <label>Periodo<select id="adminRangeFilter"><option value="all">Todos</option><option value="day">Hoy</option><option value="week">Esta semana</option><option value="month">Este mes</option></select></label>
+      <label>Asesor<select id="adminAdvisorFilter"><option value="all">Todos</option></select></label>
+      <label>Carrera<select id="adminCareerFilter"><option value="all">Todas</option></select></label>
+      <label>Grupo<select id="adminGroupFilter"><option value="all">Todos</option></select></label>
+      <label>Materia<select id="adminSubjectFilter"><option value="all">Todas</option></select></label>
+      <label>Motivo<select id="adminReasonFilter"><option value="all">Todos</option></select></label>
+      <label>Buscar alumno / matrícula<input id="adminStudentSearch" placeholder="Escriba para buscar..."></label>
+    </div>
+    <div class="report-result"><span id="reportCount">0 registros</span><span id="reportHours">0.00 horas</span></div>
+    <div class="table-wrap admin-history-wrap"><table id="adminHistory"><thead><tr><th>Fecha</th><th>Inicio</th><th>Fin</th><th>Matrícula</th><th>Alumno</th><th>Sexo</th><th>Carrera</th><th>Grupo</th><th>Materia</th><th>Motivo</th><th>Comentarios</th><th>Asesor</th><th>Duración</th><th>Psico.</th><th>Cuatrimestre</th></tr></thead><tbody></tbody></table></div>
+    <div class="history-scroll-hint">La tabla conserva desplazamiento vertical y horizontal para consultar todos los campos y registros.</div>
+  </section>
+
+  <section class="card" id="catalogos">
+    <div class="section-title">Catálogos</div>
+    <div class="muted catalog-intro">Seleccione un catálogo para administrarlo. Los cambios de esta versión se guardan en este navegador y quedan disponibles para el formulario.</div>
+    <div class="catalog-current" id="catalogCurrent">Catálogo seleccionado: <strong>Alumnos</strong></div>
+    <div class="catalog-grid admin-catalog-nav">
+      <button class="secondary" data-target="cat-alumnos">Alumnos</button><button class="secondary" data-target="cat-asesores">Asesores</button><button class="secondary" data-target="cat-materias">Materias</button><button class="secondary" data-target="cat-carreras">Carreras</button><button class="secondary" data-target="cat-grupos">Grupos</button><button class="secondary" data-target="cat-motivos">Motivos</button><button class="secondary" data-target="cat-cuatrimestres">Cuatrimestres</button>
+    </div>
+    <div class="catalog-sections catalog-tabs">
+      <section class="catalog-panel" id="cat-alumnos"><div class="catalog-head"><h3>Alumnos</h3><span id="catAlumnosCount"></span></div><input class="catalog-search" id="searchAlumnos" placeholder="Buscar matrícula o nombre..."><div class="table-wrap compact-table catalog-table-wrap"><table><thead><tr><th>Matrícula</th><th>Nombre</th><th>Sexo</th><th>Carrera</th><th>Grupo</th><th>Turno</th></tr></thead><tbody id="catalogAlumnos"></tbody></table></div></section>
+      <section class="catalog-panel is-hidden" id="cat-asesores"><div class="catalog-head"><h3>Asesores</h3><div><span id="catAsesoresCount"></span> <button class="secondary small-btn" id="addAdvisorBtn">Agregar</button></div></div><div class="catalog-add-row advisor-add-row" id="add-asesores"><input id="newAdvisorName" placeholder="Nombre completo"><input id="newAdvisorUser" placeholder="Usuario"><input id="newAdvisorPassword" type="password" placeholder="Contraseña (opcional)"><button class="primary small-btn" id="saveAdvisorBtn">Guardar</button></div><input class="catalog-search" id="searchAsesores" placeholder="Buscar usuario o nombre..."><div class="table-wrap compact-table catalog-table-wrap"><table><thead><tr><th>Usuario</th><th>Nombre</th><th>Contraseña</th><th>Estado</th></tr></thead><tbody id="catalogAsesores"></tbody></table></div></section>
+      <section class="catalog-panel is-hidden" id="cat-materias"><div class="catalog-head"><h3>Materias</h3><button class="secondary small-btn" data-add="materias">Agregar</button></div><div class="catalog-add-row" id="add-materias"><input placeholder="Nueva materia"><button class="primary small-btn">Guardar</button></div><div class="catalog-list" id="catalogMaterias"></div></section>
+      <section class="catalog-panel is-hidden" id="cat-carreras"><div class="catalog-head"><h3>Carreras</h3><button class="secondary small-btn" data-add="carreras">Agregar</button></div><div class="catalog-add-row" id="add-carreras"><input placeholder="Nueva carrera"><button class="primary small-btn">Guardar</button></div><div class="catalog-list" id="catalogCarreras"></div></section>
+      <section class="catalog-panel is-hidden" id="cat-grupos"><div class="catalog-head"><h3>Grupos</h3><button class="secondary small-btn" data-add="grupos">Agregar</button></div><div class="catalog-add-row" id="add-grupos"><input placeholder="Nuevo grupo"><button class="primary small-btn">Guardar</button></div><div class="catalog-list" id="catalogGrupos"></div></section>
+      <section class="catalog-panel is-hidden" id="cat-motivos"><div class="catalog-head"><h3>Motivos</h3><button class="secondary small-btn" data-add="motivos">Agregar</button></div><div class="catalog-add-row" id="add-motivos"><input placeholder="Nuevo motivo"><button class="primary small-btn">Guardar</button></div><div class="catalog-list" id="catalogMotivos"></div></section>
+      <section class="catalog-panel is-hidden" id="cat-cuatrimestres"><div class="catalog-head"><h3>Cuatrimestres</h3><button class="secondary small-btn" data-add="cuatrimestres">Agregar</button></div><div class="catalog-add-row" id="add-cuatrimestres"><input placeholder="Ej. Enero-Abril 2027"><button class="primary small-btn">Guardar</button></div><div class="catalog-list" id="catalogCuatrimestres"></div></section>
+    </div>
+  </section>
+
+  <section class="card student-bottom-card" id="alumnos-resumen">
+    <div class="section-title">Horas recibidas por alumno</div>
+    <div class="muted section-note">Se muestran 10 alumnos a la vez; use el desplazamiento para consultar los demás.</div>
+    <div class="table-wrap student-summary-wrap compact-table"><table><thead><tr><th>Matrícula</th><th>Alumno</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="byStudent"></tbody></table></div>
+  </section>
+</main>
+
+<footer class="site-footer"><span id="adminFooterText">© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.</span><br><span id="adminVersion">Versión 1.4.0 · Administración</span></footer>
+<div id="adminPrintReport" class="print-only"></div>
+<iframe id="dataBridge" src="index.html?bridge=1" title="Sincronización de datos" style="display:none" aria-hidden="true"></iframe>
+<script src="admin.js"></script>
+</body></html>
