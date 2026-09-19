@@ -91,6 +91,12 @@ function readSession(request, cookieName = "advisor_session") {
   }
 }
 
+async function isActiveAdvisorSession(session){
+  if(!session||session.rol!=="advisor"||!database)return false;
+  const result=await database.query("select 1 from public.app_users where id=$1 and role='advisor' and active=true",[session.id]);
+  return result.rowCount===1;
+}
+
 function readJsonBody(request, limit = 16384) {
   return new Promise((resolve, reject) => {
     let body = "";
@@ -190,7 +196,7 @@ async function apiAdminData(request, response) {
                            c.code::text as carrera, g.name::text as grupo, s.shift as turno
                       from public.students s join public.careers c on c.id=s.career_id
                       join public.student_groups g on g.id=s.group_id where s.active=true order by s.full_name`),
-    database.query(`select username::text as usuario, full_name as nombre, role as rol, active as activo,
+    database.query(`select id, username::text as usuario, full_name as nombre, role as rol, active as activo,
                            (password_hash is not null) as "requierePassword",
                            (recovery_code_hash is not null) as "recuperacionConfigurada"
                       from public.app_users order by role, full_name`),
@@ -240,6 +246,15 @@ async function apiCreateUser(request,response){
     await database.query("insert into public.app_users(username,full_name,password_hash,role,active) values($1,$2,$3,'advisor',true)",[username,fullName,hash]);
     sendJson(response,201,{ok:true});
   }catch(error){if(error.code==='23505'){sendJson(response,409,{ok:false,message:"Ese usuario ya existe."});return}throw error}
+}
+
+async function apiSetUserActive(request,response,userId){
+  if(!requireAdmin(request,response))return;
+  let body;try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false,message:"Solicitud inválida."});return}
+  if(typeof body.active!=="boolean"){sendJson(response,400,{ok:false,message:"Indique el estado de la cuenta."});return}
+  const result=await database.query("update public.app_users set active=$1 where id=$2::uuid and role='advisor' returning username::text as usuario, active as activo",[body.active,userId]);
+  if(!result.rowCount){sendJson(response,404,{ok:false,message:"No se encontró la cuenta del asesor."});return}
+  sendJson(response,200,{ok:true,user:result.rows[0]});
 }
 
 function requireSession(request, response) {
@@ -459,7 +474,8 @@ const server = http.createServer(async (request, response) => {
   if (requestUrl.pathname === "/api/session") {
     if (request.method !== "GET") { sendJson(response, 405, { ok: false }); return; }
     const session = readSession(request);
-    sendJson(response, session ? 200 : 401, session ? { ok: true, user: session } : { ok: false });
+    const valid=session&&await isActiveAdvisorSession(session);
+    sendJson(response, valid ? 200 : 401, valid ? { ok: true, user: session } : { ok: false });
     return;
   }
 
@@ -498,6 +514,15 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  const adminUserActiveMatch=requestUrl.pathname.match(/^\/api\/admin\/users\/([^/]+)\/active$/);
+  if(adminUserActiveMatch){
+    if(request.method!=="PATCH"){sendJson(response,405,{ok:false});return}
+    if(!database){sendJson(response,503,{ok:false});return}
+    try{await apiSetUserActive(request,response,decodeURIComponent(adminUserActiveMatch[1]));}
+    catch(error){console.error("Error al cambiar estado del asesor:",error.message);sendJson(response,503,{ok:false,message:"No fue posible actualizar la cuenta."});}
+    return;
+  }
+
   if (requestUrl.pathname === "/api/logout") {
     if (request.method !== "POST") { sendJson(response, 405, { ok: false }); return; }
     response.setHeader("Set-Cookie", "advisor_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax");
@@ -524,6 +549,7 @@ const server = http.createServer(async (request, response) => {
     if (!database) { sendJson(response, 503, { ok: false, code: "database_not_configured" }); return; }
     const session = requireSession(request, response);
     if (!session) return;
+    if(!await isActiveAdvisorSession(session)){sendJson(response,403,{ok:false,code:"inactive_account",message:"La cuenta del asesor está inactiva."});return}
     try {
       if (request.method === "GET") await apiListAdvisories(request, response, session);
       else if (request.method === "POST") await apiCreateAdvisory(request, response, session);

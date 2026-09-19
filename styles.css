@@ -76,7 +76,7 @@
 .catalog-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}
 .catalog-head h3{margin:0;font-size:14px}
 .catalog-head span{font-size:11px;color:#73808a}
-.catalog-add-row{display:none;gap:7px;margin-bottom:9px}.catalog-add-row.visible{display:flex}.catalog-add-row input{margin:0;flex:1;padding:8px;font-size:12px}.small-btn{padding:7px 10px;font-size:11px}.mini-btn{padding:4px 7px;font-size:10px}
+.catalog-add-row{display:none;gap:7px;margin-bottom:9px}.catalog-add-row.visible{display:flex}.catalog-add-row input{margin:0;flex:1;padding:8px;font-size:12px}.small-btn{padding:7px 10px;font-size:11px}.mini-btn{padding:4px 7px;font-size:10px}.account-status{display:inline-block;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:800}.account-status.is-active{background:#e7f6ec;color:#18713a}.account-status.is-inactive{background:#fde9e7;color:#9d241b}
 .catalog-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
 .catalog-item{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#fff;border:1px solid #e5e9ec;border-radius:7px;padding:7px 8px;font-size:11px;min-width:0}.catalog-item span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .school-settings{display:grid;grid-template-columns:2fr 2fr 1fr auto;gap:10px;align-items:end}.school-settings label{font-size:11px}.school-settings input{padding:8px;font-size:12px}

@@ -2,6 +2,14 @@
 
 Esta versión guarda en PostgreSQL los alumnos, las asesorías y el historial personal de cada asesor.
 
+## Novedad v31: estado de las cuentas de asesores
+
+- El catálogo de asesores muestra cuentas activas e inactivas.
+- El administrador puede inactivar o reactivar cada cuenta con confirmación.
+- Un asesor inactivo no puede iniciar sesión ni utilizar una sesión anterior.
+- El historial del asesor se conserva y permanece disponible en los reportes.
+- Los conteos y filtros operativos incluyen únicamente asesores activos.
+
 ## Novedades de Administración
 
 - Cuenta independiente `Administrador`, inicialmente sin contraseña.
