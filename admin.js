@@ -128,7 +128,7 @@ document.addEventListener('DOMContentLoaded',async()=>{
     const row=admin$(`#add-${b.dataset.add}`);
     if(row){row.classList.toggle('visible'); if(row.classList.contains('visible')) row.querySelector('input')?.focus();}
   }));
-  document.querySelectorAll('.catalog-add-row button').forEach(b=>b.addEventListener('click',()=>{const row=b.parentElement;addCatalog(row.id.replace('add-',''),row.querySelector('input'))}));
+  document.querySelectorAll('.catalog-add-row:not(#add-asesores) button').forEach(b=>b.addEventListener('click',()=>{const row=b.parentElement;addCatalog(row.id.replace('add-',''),row.querySelector('input'))}));
   admin$('#searchAlumnos').addEventListener('input',e=>renderCatalogStudents(e.target.value));admin$('#searchAsesores').addEventListener('input',e=>renderCatalogAdvisors(e.target.value));admin$('#add-asesores')?.addEventListener('submit',saveAdvisor);
   admin$('#syncDataBtn')?.addEventListener('click',async()=>{try{await loadAdminData();alert('Datos actualizados desde PostgreSQL.')}catch(error){alert('No fue posible actualizar los datos.')}});
   document.addEventListener('click',e=>{const b=e.target.closest('[data-delete]');if(b)deleteCatalog(b.dataset.delete,Number(b.dataset.index))});
