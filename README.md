@@ -2,6 +2,13 @@
 
 Esta versión guarda en PostgreSQL los alumnos, las asesorías y el historial personal de cada asesor.
 
+## Novedad v32: sesión persistente del asesor
+
+- La sesión permanece abierta al recargar con `F5` o `Ctrl + F5`.
+- Si el navegador omite temporalmente la cookie, las cuentas sin contraseña se restauran de forma silenciosa.
+- Las cuentas inactivas continúan bloqueadas y no pueden restaurar una sesión.
+- La sesión se elimina únicamente al pulsar **Cerrar sesión**, al inactivar la cuenta o cuando deja de ser válida.
+
 ## Novedad v31: estado de las cuentas de asesores
 
 - El catálogo de asesores muestra cuentas activas e inactivas.

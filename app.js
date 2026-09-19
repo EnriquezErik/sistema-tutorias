@@ -194,10 +194,18 @@ async function doLogin(){
   applySession();renderHistory();hideLogin();
 }
 async function restoreRemoteSession(){
+  const savedSession=currentUser();
   try{
     const response=await fetch("/api/session",{headers:{Accept:"application/json"}});
-    if(response.status===401){
-      localStorage.removeItem(SESSION_KEY); localStorage.removeItem(SESSION_BACKUP_KEY);
+    if(response.status===401&&savedSession?.usuario){
+      // Si Edge no envió la cookie al recargar, restablece silenciosamente las
+      // cuentas que no requieren contraseña usando la sesión local recordada.
+      const retry=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({username:savedSession.usuario,password:""})});
+      const retryPayload=await retry.json().catch(()=>({}));
+      if(retry.ok&&retryPayload.user){savePersistentSession(retryPayload.user);return true}
+    }
+    if(response.status===401||response.status===403){
+      localStorage.removeItem(SESSION_KEY);localStorage.removeItem(SESSION_BACKUP_KEY);
       document.cookie="asesor_session_local=; Max-Age=0; path=/; SameSite=Lax";
       return false;
     }

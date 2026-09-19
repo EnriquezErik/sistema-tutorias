@@ -474,8 +474,9 @@ const server = http.createServer(async (request, response) => {
   if (requestUrl.pathname === "/api/session") {
     if (request.method !== "GET") { sendJson(response, 405, { ok: false }); return; }
     const session = readSession(request);
-    const valid=session&&await isActiveAdvisorSession(session);
-    sendJson(response, valid ? 200 : 401, valid ? { ok: true, user: session } : { ok: false });
+    if(!session){sendJson(response,401,{ok:false,code:"unauthorized"});return}
+    if(!await isActiveAdvisorSession(session)){sendJson(response,403,{ok:false,code:"inactive_account",message:"La cuenta del asesor está inactiva."});return}
+    sendJson(response,200,{ok:true,user:session});
     return;
   }
 
