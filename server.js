@@ -154,6 +154,146 @@ async function apiLogin(request, response) {
   sendJson(response, 200, { ok: true, user: { usuario: user.username, nombre: user.full_name, rol: user.role } });
 }
 
+function requireSession(request, response) {
+  const session = readSession(request);
+  if (!session) sendJson(response, 401, { ok: false, code: "unauthorized", message: "La sesión no es válida." });
+  return session;
+}
+
+function advisoryRow(row) {
+  return {
+    id: row.id,
+    matricula: row.enrollment,
+    nombre: row.student_name,
+    sexo: row.sex,
+    carrera: row.career_code,
+    grupo: row.group_name,
+    turno: row.shift,
+    materia: row.subject_name,
+    motivo: row.reason_name,
+    comentarios: row.comments || "",
+    psico: row.referred_to_psychopedagogy ? "Sí" : "No",
+    asesor: row.advisor_username,
+    periodo: row.period_name,
+    inicioIso: row.started_at,
+    finIso: row.ended_at,
+    duracionMinutos: row.duration_minutes,
+    estado: row.status,
+    creado: row.created_at
+  };
+}
+
+async function apiFindStudent(request, response, enrollment) {
+  if (!requireSession(request, response)) return;
+  const result = await database.query(`
+    select s.enrollment::text, s.full_name, s.sex, s.shift,
+           c.code::text as career, g.name::text as group_name
+      from public.students s
+      join public.careers c on c.id = s.career_id
+      join public.student_groups g on g.id = s.group_id
+     where s.active = true and lower(s.enrollment::text) = lower($1)
+     limit 1
+  `, [enrollment]);
+  sendJson(response, 200, { ok: true, student: result.rows[0] || null });
+}
+
+async function apiListAdvisories(request, response, session) {
+  const result = await database.query(`
+    select a.id, s.enrollment::text, s.full_name as student_name, s.sex, s.shift,
+           c.code::text as career_code, g.name::text as group_name,
+           sub.name::text as subject_name, r.name::text as reason_name,
+           p.name as period_name, u.username::text as advisor_username,
+           a.comments, a.referred_to_psychopedagogy, a.started_at, a.ended_at,
+           a.duration_minutes, a.status, a.created_at
+      from public.advisories a
+      join public.students s on s.id = a.student_id
+      join public.careers c on c.id = s.career_id
+      join public.student_groups g on g.id = s.group_id
+      join public.subjects sub on sub.id = a.subject_id
+      join public.advisory_reasons r on r.id = a.reason_id
+      join public.periods p on p.id = a.period_id
+      join public.app_users u on u.id = a.advisor_id
+     where ($2::boolean or a.advisor_id = $1::uuid)
+     order by a.started_at desc
+     limit 1000
+  `, [session.id, session.rol === "admin"]);
+  sendJson(response, 200, { ok: true, advisories: result.rows.map(advisoryRow) });
+}
+
+async function apiCreateAdvisory(request, response, session) {
+  let body;
+  try { body = await readJsonBody(request, 32768); }
+  catch (error) { sendJson(response, 400, { ok: false, code: error.message }); return; }
+
+  const data = {
+    enrollment: String(body.matricula || "").trim(),
+    fullName: String(body.nombre || "").trim(),
+    sex: String(body.sexo || "").trim(),
+    career: String(body.carrera || "").trim(),
+    group: String(body.grupo || "").trim(),
+    shift: String(body.turno || "").trim(),
+    subject: String(body.materia || "").trim(),
+    reason: String(body.motivo || "").trim(),
+    comments: String(body.comentarios || "").trim(),
+    referred: body.psico === true || body.psico === "Sí" || body.psico === "Si",
+    period: String(body.periodo || "").trim(),
+    startedAt: new Date(body.inicio),
+    endedAt: new Date(body.fin)
+  };
+  const requiredText = [data.enrollment, data.fullName, data.sex, data.career, data.group, data.shift, data.subject, data.reason, data.period];
+  if (requiredText.some(value => !value || value === "Seleccione") || Number.isNaN(data.startedAt.getTime()) || Number.isNaN(data.endedAt.getTime())) {
+    sendJson(response, 400, { ok: false, code: "invalid_advisory", message: "Faltan datos obligatorios de la asesoría." }); return;
+  }
+  if (!['Hombre', 'Mujer'].includes(data.sex) || !['Matutino', 'Vespertino'].includes(data.shift) || data.endedAt < data.startedAt) {
+    sendJson(response, 400, { ok: false, code: "invalid_advisory", message: "Los datos de la asesoría no son válidos." }); return;
+  }
+
+  const client = await database.connect();
+  try {
+    await client.query("begin");
+    const catalogs = await client.query(`
+      select
+        (select id from public.careers where active = true and lower(code::text) = lower($1) limit 1) as career_id,
+        (select id from public.subjects where active = true and lower(name::text) = lower($2) limit 1) as subject_id,
+        (select id from public.advisory_reasons where active = true and lower(name::text) = lower($3) limit 1) as reason_id,
+        (select id from public.periods where active = true and lower(name) = lower($4) limit 1) as period_id
+    `, [data.career, data.subject, data.reason, data.period]);
+    const ids = catalogs.rows[0];
+    if (!ids.career_id || !ids.subject_id || !ids.reason_id || !ids.period_id) throw Object.assign(new Error("invalid_catalog"), { statusCode: 400 });
+    const group = await client.query(
+      "select id from public.student_groups where active = true and career_id = $1 and lower(name::text) = lower($2) limit 1",
+      [ids.career_id, data.group]
+    );
+    if (!group.rows[0]) throw Object.assign(new Error("invalid_group_for_career"), { statusCode: 400 });
+
+    const student = await client.query(`
+      insert into public.students (enrollment, full_name, sex, career_id, group_id, shift, active)
+      values ($1, $2, $3, $4, $5, $6, true)
+      on conflict (enrollment) do update set
+        full_name = excluded.full_name, sex = excluded.sex, career_id = excluded.career_id,
+        group_id = excluded.group_id, shift = excluded.shift, active = true
+      returning id
+    `, [data.enrollment, data.fullName, data.sex, ids.career_id, group.rows[0].id, data.shift]);
+    const duration = Math.max(0, Math.round((data.endedAt - data.startedAt) / 60000));
+    const inserted = await client.query(`
+      insert into public.advisories
+        (student_id, advisor_id, subject_id, reason_id, period_id, comments,
+         referred_to_psychopedagogy, started_at, ended_at, duration_minutes, status)
+      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'FINALIZADA')
+      returning id
+    `, [student.rows[0].id, session.id, ids.subject_id, ids.reason_id, ids.period_id,
+        data.comments, data.referred, data.startedAt.toISOString(), data.endedAt.toISOString(), duration]);
+    await client.query("commit");
+    sendJson(response, 201, { ok: true, id: inserted.rows[0].id });
+  } catch (error) {
+    await client.query("rollback");
+    if (error.statusCode === 400) { sendJson(response, 400, { ok: false, code: error.message, message: "Revise que el grupo corresponda a la carrera seleccionada." }); return; }
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function databaseHealth() {
   if (!database) {
     return {
@@ -176,7 +316,9 @@ async function databaseHealth() {
         (select count(*)::int from public.student_groups) as student_groups,
         (select count(*)::int from public.subjects) as subjects,
         (select count(*)::int from public.advisory_reasons) as advisory_reasons,
-        (select count(*)::int from public.periods) as periods
+        (select count(*)::int from public.periods) as periods,
+        (select count(*)::int from public.students) as students,
+        (select count(*)::int from public.advisories) as advisories
     `);
 
     return {
@@ -237,6 +379,30 @@ const server = http.createServer(async (request, response) => {
     if (request.method !== "POST") { sendJson(response, 405, { ok: false }); return; }
     response.setHeader("Set-Cookie", "advisor_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax");
     sendJson(response, 200, { ok: true });
+    return;
+  }
+
+  const studentMatch = requestUrl.pathname.match(/^\/api\/students\/([^/]+)$/);
+  if (studentMatch) {
+    if (request.method !== "GET") { sendJson(response, 405, { ok: false }); return; }
+    if (!database) { sendJson(response, 503, { ok: false, code: "database_not_configured" }); return; }
+    try { await apiFindStudent(request, response, decodeURIComponent(studentMatch[1])); }
+    catch (error) { console.error("Error al buscar alumno:", error.message); sendJson(response, 503, { ok: false, code: "database_error" }); }
+    return;
+  }
+
+  if (requestUrl.pathname === "/api/advisories") {
+    if (!database) { sendJson(response, 503, { ok: false, code: "database_not_configured" }); return; }
+    const session = requireSession(request, response);
+    if (!session) return;
+    try {
+      if (request.method === "GET") await apiListAdvisories(request, response, session);
+      else if (request.method === "POST") await apiCreateAdvisory(request, response, session);
+      else sendJson(response, 405, { ok: false });
+    } catch (error) {
+      console.error("Error en asesorías:", error.message);
+      sendJson(response, 503, { ok: false, code: "database_error", message: "No fue posible comunicarse con PostgreSQL." });
+    }
     return;
   }
 

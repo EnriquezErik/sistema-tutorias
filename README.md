@@ -1,6 +1,6 @@
-# Sistema de Asesorías Académicas · prototipo v23
+# Sistema de Asesorías Académicas · prototipo v24
 
-Esta versión inicia la migración funcional del sistema hacia PostgreSQL en Supabase.
+Esta versión guarda en PostgreSQL los alumnos, las asesorías y el historial personal de cada asesor.
 
 ## Qué ya utiliza la base de datos
 
@@ -9,8 +9,13 @@ Esta versión inicia la migración funcional del sistema hacia PostgreSQL en Sup
 - Cuatrimestres activos.
 - Carreras, grupos, materias y motivos de asesoría.
 - Sesión segura del servidor mediante cookie `HttpOnly`.
+- Búsqueda de alumnos por matrícula desde cualquier equipo.
+- Alta o actualización automática del alumno al finalizar una asesoría.
+- Registro central de cada asesoría en `advisories`.
+- Historial obtenido desde PostgreSQL y limitado al asesor conectado (Administración puede consultar el conjunto completo mediante la API).
+- Validación de que el grupo corresponda a la carrera seleccionada.
 
-Si Render o PostgreSQL no están disponibles temporalmente, la página conserva los últimos catálogos descargados y el acceso local de demostración. Los alumnos y registros de asesoría continúan en el navegador durante esta etapa; su migración será la siguiente fase.
+Si Render o PostgreSQL no están disponibles temporalmente, la página conserva los últimos catálogos descargados. Una asesoría que no pueda enviarse se guarda temporalmente en ese navegador y muestra un aviso explícito.
 
 ## Publicación en Render
 
@@ -24,8 +29,10 @@ Si Render o PostgreSQL no están disponibles temporalmente, la página conserva 
 - `/api/health`: confirma la conexión y muestra los totales de los catálogos.
 - `/api/bootstrap`: entrega a la página los catálogos activos de PostgreSQL.
 - `/api/session`: confirma si existe una sesión válida.
+- `/api/students/{matrícula}`: busca al alumno para autocompletar sus datos.
+- `/api/advisories`: registra una asesoría o devuelve el historial autorizado.
 
-Después del despliegue, abra la página en una ventana privada. El usuario inicial es `Erik`; mientras su campo `password_hash` esté vacío, no requiere contraseña. Antes de una prueba institucional se debe asignar una contraseña y proteger el panel administrativo.
+Después del despliegue, abra la página en una ventana privada. El usuario inicial es `Erik`; mientras su campo `password_hash` esté vacío, no requiere contraseña. Registre una asesoría de prueba y confirme en Supabase que aumentaron las tablas `students` y `advisories`. Antes de una prueba institucional se debe asignar una contraseña y proteger el panel administrativo.
 
 ## Desarrollo local
 
