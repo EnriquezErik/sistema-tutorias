@@ -47,6 +47,22 @@ async function loadRemoteConfig(){
   }catch(error){return false}
 }
 
+let refreshingPeriodCatalog=false;
+function applyPeriodCatalog(){
+  const C=appConfig();
+  if($("#periodName"))$("#periodName").textContent=C.period;
+  const filter=$("#periodFilter");
+  if(!filter)return;
+  const previous=filter.value||"all";
+  filter.innerHTML=`<option value="all">Todos los cuatrimestres</option>`+C.periods.map(p=>`<option value="${p}">${p}</option>`).join("");
+  filter.value=Array.from(filter.options).some(option=>option.value===previous)?previous:"all";
+}
+async function refreshPeriodCatalog(){
+  if(refreshingPeriodCatalog)return;
+  refreshingPeriodCatalog=true;
+  try{if(await loadRemoteConfig()){applyPeriodCatalog();renderHistory()}}finally{refreshingPeriodCatalog=false}
+}
+
 function localRecords(){return JSON.parse(localStorage.getItem(KEY)||"[]")}
 function recordsForAdvisor(rows,username){const user=String(username||'').trim().toLowerCase();if(!user)return[];return rows.filter(record=>String(record.asesor||'').trim().toLowerCase()===user)}
 function records(){if(Array.isArray(remoteRecords))return remoteRecords;return recordsForAdvisor(localRecords(),currentUser()?.usuario)}
@@ -226,7 +242,7 @@ async function logout(){
   showLogin();
 }
 
-document.addEventListener("DOMContentLoaded",async()=>{await loadRemoteConfig();const C=appConfig();if($("schoolName"))$("schoolName").textContent=C.schoolName;if($("periodName"))$("periodName").textContent=C.period;if($("advisorName"))$("advisorName").textContent="";fill("carrera",C.careers);fill("grupo",C.groups);fill("materia",C.subjects);fill("motivo",C.reasons);fill("turno",C.turnos||["Seleccione","Matutino","Vespertino"]);fill("sexo",C.sexos);if($("periodFilter"))$("periodFilter").innerHTML=`<option value="all">Todos los cuatrimestres</option>`+C.periods.map(p=>`<option value="${p}">${p}</option>`).join("");setStudentFields(false);renderHistory();
+document.addEventListener("DOMContentLoaded",async()=>{await loadRemoteConfig();const C=appConfig();if($("#schoolName"))$("#schoolName").textContent=C.schoolName;if($("#advisorName"))$("#advisorName").textContent="";fill("carrera",C.careers);fill("grupo",C.groups);fill("materia",C.subjects);fill("motivo",C.reasons);fill("turno",C.turnos||["Seleccione","Matutino","Vespertino"]);fill("sexo",C.sexos);applyPeriodCatalog();setStudentFields(false);renderHistory();
 await restoreRemoteSession();applySession();if(currentUser())await loadRemoteAdvisories();
 $("#loginBtn")?.addEventListener("click",doLogin);
 $("#loginUser")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("#loginPassword")?.focus()}});
@@ -234,3 +250,5 @@ $("#loginPassword")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preven
 $("#logoutBtn")?.addEventListener("click",logout);
 $("#carrera")?.addEventListener("change",updateGroupsForCareer);
 $("#buscar")?.addEventListener("click",findStudent);$("#matricula")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();findStudent()}});$("#iniciar")?.addEventListener("click",startSession);$("#finalizar")?.addEventListener("click",finishSession);$("#rangeFilter")?.addEventListener("change",renderHistory);$("#periodFilter")?.addEventListener("change",renderHistory);$("#export")?.addEventListener("click",exportCSV);$("#print")?.addEventListener("click",()=>{renderHistory();window.print()})});
+window.addEventListener("focus",refreshPeriodCatalog);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")refreshPeriodCatalog()});
