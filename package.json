@@ -1,6 +1,6 @@
 {
   "name": "sistema-tutorias",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "private": true,
   "description": "Sistema web para el registro y administración de asesorías escolares",
   "main": "server.js",

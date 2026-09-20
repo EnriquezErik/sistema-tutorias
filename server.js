@@ -410,20 +410,33 @@ async function apiCreateAdvisory(request, response, session) {
   const client = await database.connect();
   try {
     await client.query("begin");
+    const group = await client.query(`
+      select g.id, c.id as career_id
+        from public.student_groups g
+        join public.careers c on c.id = g.career_id
+       where g.active = true
+         and c.active = true
+         and lower(trim(c.code::text)) = lower(trim($1))
+         and lower(trim(g.name::text)) = lower(trim($2))
+       limit 1
+    `, [data.career, data.group]);
+    if (!group.rows[0]) {
+      throw Object.assign(new Error("invalid_group_for_career"), {
+        statusCode: 400,
+        publicMessage: `El grupo "${data.group}" no está activo o no pertenece a la carrera "${data.career}".`
+      });
+    }
+
     const catalogs = await client.query(`
       select
-        (select id from public.careers where active = true and lower(code::text) = lower($1) limit 1) as career_id,
-        (select id from public.subjects where active = true and lower(name::text) = lower($2) limit 1) as subject_id,
-        (select id from public.advisory_reasons where active = true and lower(name::text) = lower($3) limit 1) as reason_id,
-        (select id from public.periods where active = true and lower(name) = lower($4) limit 1) as period_id
-    `, [data.career, data.subject, data.reason, data.period]);
+        (select id from public.subjects where active = true and lower(trim(name::text)) = lower(trim($1)) limit 1) as subject_id,
+        (select id from public.advisory_reasons where active = true and lower(trim(name::text)) = lower(trim($2)) limit 1) as reason_id,
+        (select id from public.periods where active = true and lower(trim(name)) = lower(trim($3)) limit 1) as period_id
+    `, [data.subject, data.reason, data.period]);
     const ids = catalogs.rows[0];
-    if (!ids.career_id || !ids.subject_id || !ids.reason_id || !ids.period_id) throw Object.assign(new Error("invalid_catalog"), { statusCode: 400 });
-    const group = await client.query(
-      "select id from public.student_groups where active = true and career_id = $1 and lower(name::text) = lower($2) limit 1",
-      [ids.career_id, data.group]
-    );
-    if (!group.rows[0]) throw Object.assign(new Error("invalid_group_for_career"), { statusCode: 400 });
+    if (!ids.subject_id) throw Object.assign(new Error("invalid_subject"), { statusCode: 400, publicMessage: "La materia seleccionada ya no está activa. Actualice la página y selecciónela nuevamente." });
+    if (!ids.reason_id) throw Object.assign(new Error("invalid_reason"), { statusCode: 400, publicMessage: "El motivo seleccionado ya no está activo. Actualice la página y selecciónelo nuevamente." });
+    if (!ids.period_id) throw Object.assign(new Error("invalid_period"), { statusCode: 400, publicMessage: "El cuatrimestre seleccionado ya no está activo. Actualice la página antes de registrar la asesoría." });
 
     const student = await client.query(`
       insert into public.students (enrollment, full_name, sex, career_id, group_id, shift, active)
@@ -432,7 +445,7 @@ async function apiCreateAdvisory(request, response, session) {
         full_name = excluded.full_name, sex = excluded.sex, career_id = excluded.career_id,
         group_id = excluded.group_id, shift = excluded.shift, active = true
       returning id
-    `, [data.enrollment, data.fullName, data.sex, ids.career_id, group.rows[0].id, data.shift]);
+    `, [data.enrollment, data.fullName, data.sex, group.rows[0].career_id, group.rows[0].id, data.shift]);
     const duration = Math.max(0, Math.round((data.endedAt - data.startedAt) / 60000));
     const inserted = await client.query(`
       insert into public.advisories
@@ -446,7 +459,14 @@ async function apiCreateAdvisory(request, response, session) {
     sendJson(response, 201, { ok: true, id: inserted.rows[0].id });
   } catch (error) {
     await client.query("rollback");
-    if (error.statusCode === 400) { sendJson(response, 400, { ok: false, code: error.message, message: "Revise que el grupo corresponda a la carrera seleccionada." }); return; }
+    if (error.statusCode === 400) {
+      sendJson(response, 400, {
+        ok: false,
+        code: error.message,
+        message: error.publicMessage || "Revise los datos de la asesoría e intente nuevamente."
+      });
+      return;
+    }
     throw error;
   } finally {
     client.release();

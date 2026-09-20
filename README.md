@@ -1,6 +1,13 @@
-# Sistema de Asesorías Académicas · prototipo v25
+# Sistema de Asesorías Académicas · versión 39
 
 Esta versión guarda en PostgreSQL los alumnos, las asesorías y el historial personal de cada asesor.
+
+## Corrección v39: validación de carrera y grupo
+
+- La carrera y el grupo se validan juntos mediante su relación real en PostgreSQL.
+- La comparación admite diferencias accidentales de mayúsculas y espacios exteriores.
+- Si el problema corresponde a materia, motivo o cuatrimestre, la página ahora muestra el dato exacto que debe actualizarse en lugar de atribuirlo al grupo.
+- No modifica ni elimina carreras, grupos, alumnos ni asesorías existentes.
 
 ## Novedad v31: estado de las cuentas de asesores
 
