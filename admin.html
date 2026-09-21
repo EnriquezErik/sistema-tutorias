@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Administración · Asesorías</title>
-<link rel="stylesheet" href="styles.css?v=39">
+<link rel="stylesheet" href="styles.css?v=40">
 </head>
 <body>
 <div id="adminLoginScreen" class="login-screen">
@@ -52,7 +52,7 @@
   </section>
 
   <section class="card" id="estadisticas">
-    <div class="toolbar stats-toolbar"><div><div class="section-title">Estadísticas</div></div><button class="primary" id="exportStatsExcelBtn">Exportar a Excel</button></div>
+    <div class="toolbar stats-toolbar"><div><div class="section-title">Estadísticas</div></div><div class="report-actions"><button class="secondary" id="printStatsBtn">Imprimir estadísticas</button><button class="primary" id="exportStatsExcelBtn">Exportar a Excel</button></div></div>
     <div class="muted section-note">Los cuadros se ajustan automáticamente al contenido para aprovechar mejor el espacio.</div>
     <div class="admin-stats-grid">
       <div class="stat-panel"><h3 class="sub-title">Horas por materia</h3><div class="table-wrap compact-table"><table><thead><tr><th>Materia</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="bySubject"></tbody></table></div></div>
@@ -60,6 +60,8 @@
       <div class="stat-panel"><h3 class="sub-title">Asesorías por asesor</h3><div class="table-wrap compact-table"><table><thead><tr><th>Asesor</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="byAdvisor"></tbody></table></div></div>
       <div class="stat-panel"><h3 class="sub-title">Actividad por carrera / grupo</h3><div class="table-wrap compact-table wide-compact"><table><thead><tr><th>Carrera</th><th>Grupo</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="byGroup"></tbody></table></div></div>
       <div class="stat-panel"><h3 class="sub-title">Canalizaciones a psicopedagogía</h3><div class="table-wrap compact-table"><table><thead><tr><th>Resultado</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="byReferral"></tbody></table></div></div>
+      <div class="stat-panel"><h3 class="sub-title">Asesorías por sexo</h3><div class="table-wrap compact-table"><table><thead><tr><th>Sexo</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="bySex"></tbody></table></div></div>
+      <div class="stat-panel"><h3 class="sub-title">Canalizaciones por sexo</h3><div class="table-wrap compact-table"><table><thead><tr><th>Sexo</th><th>Canalizaciones</th><th>Horas</th></tr></thead><tbody id="byReferralSex"></tbody></table></div></div>
       <div class="stat-panel"><h3 class="sub-title">Actividad por cuatrimestre</h3><div class="table-wrap compact-table wide-compact"><table><thead><tr><th>Cuatrimestre</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="byPeriod"></tbody></table></div></div>
     </div>
   </section>
@@ -125,5 +127,5 @@
 <footer class="site-footer"><span id="adminFooterText">© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.</span><br><span id="adminVersion">Versión 1.6.0 · Administración</span></footer>
 <div id="adminPrintReport" class="print-only"></div>
 <iframe id="dataBridge" src="index.html?bridge=1" title="Sincronización de datos" style="display:none" aria-hidden="true"></iframe>
-<script src="admin.js?v=39"></script>
+<script src="admin.js?v=40"></script>
 </body></html>

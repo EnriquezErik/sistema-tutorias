@@ -1,5 +1,9 @@
 const DATA={schoolName:"NOMBRE DE LA INSTITUCIÓN",period:"Septiembre-Diciembre 2026",advisors:[{usuario:"Erik",nombre:"Erik (demo)",requierePassword:false,password:""}],careers:["Seleccione","IAEV","ICM","IRC","ITIID","LTF","ISA"],groups:["Seleccione","IAEV-PA-08","IAEV-PA-07","ITIID-IA-02","ITIID-SM-02","ISA-SA-06","ICM-CYM-03","IRC-MPR-02","LTF 08","SW 28"],subjects:["Seleccione","Matemáticas","Física","Cálculo","Estadística","Programación","Álgebra"],reasons:["Seleccione","Motivos académicos","Motivos familiares","Motivos personales","Motivos sociales"],sexos:["Seleccione","Hombre","Mujer"],turnos:["Seleccione","Matutino","Vespertino"]};
-const $=s=>document.querySelector(s),KEY="asesorias_demo";let currentStart=null,timerId=null,remoteConfig=null,remoteRecords=null;
+const $=s=>document.querySelector(s),KEY="asesorias_demo";let currentStart=null,timerId=null,remoteConfig=null,remoteRecords=null,savingAdvisory=false;
+function activeKey(){return `asesoria_activa_${String(currentUser()?.usuario||'').toLowerCase()}`}
+function persistActiveSession(){if(!currentStart||!currentUser())return;const fields={};['matricula','nombre','sexo','carrera','grupo','turno','materia','motivo','psico','comentarios'].forEach(id=>fields[id]=$("#"+id)?.value||'');localStorage.setItem(activeKey(),JSON.stringify({start:currentStart.toISOString(),fields}))}
+function clearActiveSession(){if(currentUser())localStorage.removeItem(activeKey())}
+function restoreActiveAdvisory(){if(!currentUser())return;let saved;try{saved=JSON.parse(localStorage.getItem(activeKey())||'null')}catch(error){}if(!saved?.start||!saved.fields)return;currentStart=new Date(saved.start);if(Number.isNaN(currentStart.getTime())){clearActiveSession();currentStart=null;return}const f=saved.fields;for(const id of ['matricula','nombre','sexo','carrera'])if($("#"+id))$("#"+id).value=f[id]||'';updateGroupsForCareer();for(const id of ['grupo','turno','materia','motivo','psico','comentarios'])if($("#"+id))$("#"+id).value=f[id]||'';setStudentFields(false);$("#iniciar").disabled=true;$("#finalizar").disabled=false;$("#status").textContent='ASESORÍA EN CURSO';clearInterval(timerId);timerId=setInterval(updateTimer,1000);updateTimer()}
 function appConfig(){
   if(remoteConfig)return remoteConfig;
   let school={}; let cats={}; let periods=[];
@@ -81,11 +85,11 @@ function startSession(){if(!$("#matricula").value.trim()||!$("#nombre").value.tr
 !$("#motivo").value||$("#motivo").value==="Seleccione"||
 !$("#psico").value||$("#psico").value==="Seleccione"){
 alert("Complete todas las casillas obligatorias antes de iniciar la asesoría.");
-return}currentStart=new Date();$("#iniciar").disabled=true;$("#finalizar").disabled=false;$("#status").textContent="ASESORÍA EN CURSO";timerId=setInterval(updateTimer,1000);updateTimer()}
+return}currentStart=new Date();$("#iniciar").disabled=true;$("#finalizar").disabled=false;$("#status").textContent="ASESORÍA EN CURSO";persistActiveSession();timerId=setInterval(updateTimer,1000);updateTimer()}
 function updateTimer(){if(!currentStart)return;const s=Math.floor((Date.now()-currentStart)/1000);$("#timer").textContent=new Date(s*1000).toISOString().substring(11,19)}
 function resetForm(){$("#matricula").value="";$("#sexo").selectedIndex=0;$("#nombre").value="";$("#sexo").value="Seleccione";$("#carrera").value="Seleccione";$("#grupo").value="Seleccione";$("#turno").value="Seleccione";$("#materia").value="Seleccione";$("#motivo").value="Seleccione";$("#psico").value="Seleccione";$("#comentarios").value="";setStudentFields(false);$("#status").textContent="SIN INICIAR";$("#timer").textContent="00:00:00";$("#matricula").focus()}
 async function finishSession(){
-  if(!currentStart)return;
+  if(!currentStart||savingAdvisory)return;savingAdvisory=true;
   const end=new Date(),start=currentStart,mins=Math.max(0,Math.round((end-start)/60000));
   const sd={matricula:$("#matricula").value.trim(),nombre:$("#nombre").value.trim(),sexo:$("#sexo").value,carrera:$("#carrera").value,grupo:$("#grupo").value,turno:$("#turno").value};
   const record={id:crypto.randomUUID(),...sd,materia:$("#materia").value,motivo:$("#motivo").value,comentarios:$("#comentarios").value,psico:$("#psico").value,asesor:(currentUser()?.usuario||$("#advisorName").textContent),periodo:appConfig().period,fecha:start.toLocaleDateString("es-MX"),inicio:start.toLocaleTimeString("es-MX"),fin:end.toLocaleTimeString("es-MX"),duracionMinutos:mins,estado:"FINALIZADA",creado:new Date().toISOString(),inicioIso:start.toISOString(),finIso:end.toISOString()};
@@ -95,14 +99,14 @@ async function finishSession(){
     const response=await fetch("/api/advisories",{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({...record,inicio:record.inicioIso,fin:record.finIso})});
     const payload=await response.json().catch(()=>({}));
     if(response.ok)savedRemote=true;
-    else if(response.status===400){$("#finalizar").disabled=false;$("#status").textContent="REVISE LOS DATOS";alert(payload.message||"Revise los datos de la asesoría.");return}
-    else if(response.status===401){$("#finalizar").disabled=false;showLogin();alert("Su sesión terminó. Ingrese nuevamente antes de guardar.");return}
+    else if(response.status===400){savingAdvisory=false;$("#finalizar").disabled=false;$("#status").textContent="REVISE LOS DATOS";alert(payload.message||"Revise los datos de la asesoría.");return}
+    else if(response.status===401){savingAdvisory=false;$("#finalizar").disabled=false;showLogin();alert("Su sesión terminó. Ingrese nuevamente antes de guardar.");return}
     else useLocalBackup=true;
   }catch(error){useLocalBackup=true}
   const ss=students(),i=ss.findIndex(x=>x.matricula.toLowerCase()===sd.matricula.toLowerCase());if(i>=0)ss[i]={...ss[i],...sd};else ss.push(sd);saveStudents(ss);
   if(useLocalBackup){const local=localRecords();local.push(record);saveRecords(local);if(Array.isArray(remoteRecords))remoteRecords.push(record)}
   if(savedRemote)await loadRemoteAdvisories();
-  clearInterval(timerId);timerId=null;currentStart=null;$("#iniciar").disabled=false;$("#finalizar").disabled=true;resetForm();renderHistory();
+  clearActiveSession();clearInterval(timerId);timerId=null;currentStart=null;savingAdvisory=false;$("#iniciar").disabled=false;$("#finalizar").disabled=true;resetForm();renderHistory();
   alert(useLocalBackup?"PostgreSQL no respondió. La asesoría quedó guardada temporalmente en este navegador.":"Asesoría guardada correctamente en la base de datos. El formulario está listo para el siguiente alumno.");
 }
 function inRange(x,r,period){const d=new Date(x.creado),n=new Date();if(r==="all")return true;if(r==="day")return d.toDateString()===n.toDateString();if(r==="week"){const w=new Date(n);w.setDate(n.getDate()-n.getDay());w.setHours(0,0,0,0);return d>=w}if(r==="month")return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear();if(r==="quarter")return x.periodo===(period&&period!=="all"?period:appConfig().period);return true}
@@ -232,6 +236,7 @@ function applySession(){
   document.title="Registro de Asesorías · "+u.usuario;
 }
 async function logout(){
+  if(currentStart&&!confirm("Hay una asesoría en curso. ¿Desea cerrar la sesión? La asesoría permanecerá guardada para continuar al volver a ingresar."))return;
   try{await fetch("/api/logout",{method:"POST",headers:{Accept:"application/json"}})}catch(error){}
   localStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(SESSION_BACKUP_KEY);
@@ -243,12 +248,14 @@ async function logout(){
 }
 
 document.addEventListener("DOMContentLoaded",async()=>{await loadRemoteConfig();const C=appConfig();if($("#schoolName"))$("#schoolName").textContent=C.schoolName;if($("#advisorName"))$("#advisorName").textContent="";fill("carrera",C.careers);fill("grupo",C.groups);fill("materia",C.subjects);fill("motivo",C.reasons);fill("turno",C.turnos||["Seleccione","Matutino","Vespertino"]);fill("sexo",C.sexos);applyPeriodCatalog();setStudentFields(false);renderHistory();
-await restoreRemoteSession();applySession();if(currentUser())await loadRemoteAdvisories();
+await restoreRemoteSession();applySession();if(currentUser()){await loadRemoteAdvisories();restoreActiveAdvisory()}
 $("#loginBtn")?.addEventListener("click",doLogin);
 $("#loginUser")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("#loginPassword")?.focus()}});
 $("#loginPassword")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();doLogin()}});
 $("#logoutBtn")?.addEventListener("click",logout);
+document.querySelector('.grid')?.addEventListener('input',()=>{if(currentStart)persistActiveSession()});
 $("#carrera")?.addEventListener("change",updateGroupsForCareer);
 $("#buscar")?.addEventListener("click",findStudent);$("#matricula")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();findStudent()}});$("#iniciar")?.addEventListener("click",startSession);$("#finalizar")?.addEventListener("click",finishSession);$("#rangeFilter")?.addEventListener("change",renderHistory);$("#periodFilter")?.addEventListener("change",renderHistory);$("#export")?.addEventListener("click",exportCSV);$("#print")?.addEventListener("click",()=>{renderHistory();window.print()})});
 window.addEventListener("focus",refreshPeriodCatalog);
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")refreshPeriodCatalog()});
+window.addEventListener('beforeunload',()=>{if(currentStart)persistActiveSession()});

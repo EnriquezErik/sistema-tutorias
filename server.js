@@ -175,7 +175,7 @@ function requireAdmin(request, response) {
 async function apiAdminData(request, response) {
   if (!requireAdmin(request, response)) return;
   const session = readSession(request, "admin_session");
-  const [advisories, students, users, bootstrap, periodsAdmin, groupsAdmin] = await Promise.all([
+  const [advisories, students, users, bootstrap, periodsAdmin, groupsAdmin, careersAdmin, subjectsAdmin, reasonsAdmin] = await Promise.all([
     database.query(`
       select a.id, s.enrollment::text, s.full_name as student_name, s.sex, s.shift,
              c.code::text as career_code, g.name::text as group_name,
@@ -205,12 +205,32 @@ async function apiAdminData(request, response) {
     database.query("select id, name, starts_on, ends_on, active from public.periods order by starts_on desc"),
     database.query(`select g.id, g.name::text, g.career_id, g.active, c.code::text as career_code
                       from public.student_groups g left join public.careers c on c.id=g.career_id
-                     order by c.code nulls last, g.name`)
+                     order by c.code nulls last, g.name`),
+    database.query("select id,code::text as name,active from public.careers order by code"),
+    database.query("select id,name::text,active from public.subjects order by name"),
+    database.query("select id,name::text,active from public.advisory_reasons order by name")
   ]);
   sendJson(response, 200, { ok: true, user: session, data: {
     advisories: advisories.rows.map(advisoryRow), students: students.rows, users: users.rows,
-    catalogs: bootstrap, periodsAdmin: periodsAdmin.rows, groupsAdmin: groupsAdmin.rows
+    catalogs: bootstrap, periodsAdmin: periodsAdmin.rows, groupsAdmin: groupsAdmin.rows,
+    catalogItems: { carreras: careersAdmin.rows, materias: subjectsAdmin.rows, motivos: reasonsAdmin.rows }
   }});
+}
+
+const simpleCatalogs={carreras:{table:"careers",column:"code",label:"carrera"},materias:{table:"subjects",column:"name",label:"materia"},motivos:{table:"advisory_reasons",column:"name",label:"motivo"}};
+async function apiCreateSimpleCatalog(request,response,key){
+  if(!requireAdmin(request,response))return;const cfg=simpleCatalogs[key];
+  let body;try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false,message:"Solicitud inválida."});return}
+  const name=String(body.name||"").trim();if(!name){sendJson(response,400,{ok:false,message:`Capture la ${cfg.label}.`});return}
+  try{const sql=key==='carreras'?"insert into public.careers(code,name,active) values($1,$1,true) returning id,code::text as name,active":`insert into public.${cfg.table}(${cfg.column},active) values($1,true) returning id,${cfg.column}::text as name,active`;const result=await database.query(sql,[name]);sendJson(response,201,{ok:true,item:result.rows[0]})}
+  catch(error){if(error.code==='23505'){sendJson(response,409,{ok:false,message:`Ya existe esa ${cfg.label}.`});return}throw error}
+}
+async function apiSetSimpleCatalogActive(request,response,key,id){
+  if(!requireAdmin(request,response))return;const cfg=simpleCatalogs[key];
+  let body;try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false,message:"Solicitud inválida."});return}
+  if(typeof body.active!=="boolean"){sendJson(response,400,{ok:false,message:"Indique el estado."});return}
+  const result=await database.query(`update public.${cfg.table} set active=$1,updated_at=now() where id=$2::uuid returning id,${cfg.column}::text as name,active`,[body.active,id]);
+  if(!result.rowCount){sendJson(response,404,{ok:false,message:"No se encontró el registro."});return}sendJson(response,200,{ok:true,item:result.rows[0]});
 }
 
 async function apiCreateGroup(request,response){
@@ -603,6 +623,11 @@ const server = http.createServer(async (request, response) => {
     try { await apiCreateGroup(request,response); } catch(error) { console.error("Error al crear grupo:",error.message); sendJson(response,503,{ok:false,message:"No fue posible guardar el grupo."}); }
     return;
   }
+
+  const simpleCatalogMatch=requestUrl.pathname.match(/^\/api\/admin\/catalogs\/(carreras|materias|motivos)$/);
+  if(simpleCatalogMatch){if(request.method!=="POST"){sendJson(response,405,{ok:false});return}if(!database){sendJson(response,503,{ok:false});return}try{await apiCreateSimpleCatalog(request,response,simpleCatalogMatch[1])}catch(error){console.error("Error de catálogo:",error.message);sendJson(response,503,{ok:false,message:"No fue posible guardar el registro."})}return}
+  const simpleCatalogActiveMatch=requestUrl.pathname.match(/^\/api\/admin\/catalogs\/(carreras|materias|motivos)\/([^/]+)\/active$/);
+  if(simpleCatalogActiveMatch){if(request.method!=="PATCH"){sendJson(response,405,{ok:false});return}if(!database){sendJson(response,503,{ok:false});return}try{await apiSetSimpleCatalogActive(request,response,simpleCatalogActiveMatch[1],decodeURIComponent(simpleCatalogActiveMatch[2]))}catch(error){console.error("Error de catálogo:",error.message);sendJson(response,503,{ok:false,message:"No fue posible actualizar el registro."})}return}
 
   const adminGroupActiveMatch=requestUrl.pathname.match(/^\/api\/admin\/groups\/([^/]+)\/active$/);
   if(adminGroupActiveMatch){

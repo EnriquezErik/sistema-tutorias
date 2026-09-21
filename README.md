@@ -1,6 +1,18 @@
-# Sistema de Asesorías Académicas · versión 39
+# Sistema de Asesorías Académicas · versión 40
 
 Esta versión guarda en PostgreSQL los alumnos, las asesorías y el historial personal de cada asesor.
+
+## Novedades v40
+
+- Carreras, materias y motivos se crean, inactivan y reactivan directamente en PostgreSQL.
+- Los catálogos activos se actualizan en el formulario de Registro de Asesorías al volver a cargarlo.
+- Estadísticas administrativas de asesorías por sexo y canalizaciones por sexo.
+- Las estadísticas nuevas se incluyen en la impresión y en la exportación a Excel.
+- Protección contra envíos repetidos al finalizar una asesoría.
+- Una asesoría en curso se conserva en el navegador si se actualiza o cierra accidentalmente la página.
+- Advertencia antes de cerrar sesión cuando existe una asesoría en curso.
+- Las contraseñas de asesores continúan siendo opcionales.
+- No se agregó la clasificación individual/grupal, conforme a lo acordado.
 
 ## Corrección v39: validación de carrera y grupo
 
