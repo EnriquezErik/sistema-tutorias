@@ -88,7 +88,7 @@
 
   <section class="card" id="catalogos">
     <div class="section-title">Catálogos</div>
-    <div class="muted catalog-intro">Alumnos y asesores se consultan desde PostgreSQL. La edición central de los demás catálogos se incorporará gradualmente.</div>
+    <div class="muted catalog-intro">Alumnos y asesores se consultan desde base de datos.</div>
     <div class="catalog-current" id="catalogCurrent">Catálogo seleccionado: <strong>Alumnos</strong></div>
     <div class="catalog-grid admin-catalog-nav">
       <button class="secondary" data-target="cat-alumnos">Alumnos</button><button class="secondary" data-target="cat-asesores">Asesores</button><button class="secondary" data-target="cat-materias">Materias</button><button class="secondary" data-target="cat-carreras">Carreras</button><button class="secondary" data-target="cat-grupos">Grupos</button><button class="secondary" data-target="cat-motivos">Motivos</button><button class="secondary" data-target="cat-cuatrimestres">Cuatrimestres</button>
@@ -112,7 +112,7 @@
 
   <section class="card" id="seguridad">
     <div class="section-title">Seguridad de la cuenta administrativa</div>
-    <div class="muted section-note">Puede conservar el acceso sin contraseña durante el prototipo. Configure siempre una clave de recuperación de al menos 10 caracteres y guárdela en un lugar seguro.</div>
+    <div class="muted section-note">Puede conservar el acceso sin contraseña. Configure siempre una clave de recuperación de al menos 10 caracteres y guárdela en un lugar seguro.</div>
     <div class="security-settings">
       <label>Contraseña actual<input id="currentAdminPassword" type="password" autocomplete="current-password" placeholder="Déjela vacía si todavía no existe"></label>
       <label>Contraseña nueva<input id="newAdminPassword" type="password" minlength="8" autocomplete="new-password" placeholder="Opcional; mínimo 8 caracteres"></label>
@@ -124,7 +124,7 @@
   </section>
 </main>
 
-<footer class="site-footer"><span id="adminFooterText">© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.</span><br><span id="adminVersion">Versión 1.6.0 · Administración</span></footer>
+<footer class="site-footer"><span id="adminFooterText">© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.</span><br><span id="adminVersion">Versión 1.0.0 · Administración</span></footer>
 <div id="adminPrintReport" class="print-only"></div>
 <iframe id="dataBridge" src="index.html?bridge=1" title="Sincronización de datos" style="display:none" aria-hidden="true"></iframe>
 <script src="admin.js?v=40"></script>
