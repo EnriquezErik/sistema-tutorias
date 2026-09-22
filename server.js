@@ -8,9 +8,15 @@ const bcrypt = require("bcryptjs");
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = __dirname;
 const DATABASE_URL = process.env.DATABASE_URL || "";
-const SESSION_SECRET = process.env.SESSION_SECRET || (DATABASE_URL
-  ? crypto.createHash("sha256").update(DATABASE_URL).digest("hex")
-  : crypto.randomBytes(32).toString("hex"));
+const SESSION_SECRET = process.env.SESSION_SECRET || "";
+const SESSION_MAX_AGE_SECONDS = Math.max(900, Number(process.env.SESSION_MAX_AGE_SECONDS) || 43200);
+const TRUST_PROXY_HTTPS = process.env.NODE_ENV === "production";
+const loginAttempts = new Map();
+if (process.env.NODE_ENV === "production" && SESSION_SECRET.length < 32) {
+  console.error("SESSION_SECRET debe contener al menos 32 caracteres en producción.");
+  process.exit(1);
+}
+const effectiveSessionSecret = SESSION_SECRET || crypto.randomBytes(32).toString("hex");
 const database = DATABASE_URL
   ? new Pool({
       connectionString: DATABASE_URL,
@@ -32,10 +38,12 @@ const MIME_TYPES = {
   ".svg": "image/svg+xml",
   ".ico": "image/x-icon"
 };
+const PUBLIC_FILES = new Set(["index.html","admin.html","styles.css","app.js","admin.js","favicon.ico"]);
 
 function resolveRequestPath(requestUrl) {
   const pathname = decodeURIComponent(new URL(requestUrl, "http://localhost").pathname);
   const requestedFile = pathname === "/" ? "index.html" : pathname.replace(/^\/+/, "");
+  if (!PUBLIC_FILES.has(requestedFile) && !requestedFile.startsWith("assets/")) return null;
   const absolutePath = path.resolve(PUBLIC_DIR, requestedFile);
   return absolutePath.startsWith(PUBLIC_DIR + path.sep) ? absolutePath : null;
 }
@@ -48,6 +56,31 @@ function sendJson(response, statusCode, body, headOnly = false) {
     "Content-Length": Buffer.byteLength(payload)
   });
   response.end(headOnly ? undefined : payload);
+}
+
+function setSecurityHeaders(response) {
+  response.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+  response.setHeader("X-Content-Type-Options", "nosniff");
+  response.setHeader("X-Frame-Options", "DENY");
+  response.setHeader("Referrer-Policy", "no-referrer");
+  response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  if (TRUST_PROXY_HTTPS) response.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+}
+
+function requestIp(request) { return String(request.headers["x-forwarded-for"] || request.socket.remoteAddress || "unknown").split(",")[0].trim(); }
+function sameOrigin(request) {
+  const origin = request.headers.origin;
+  if (!origin) return true;
+  const proto = String(request.headers["x-forwarded-proto"] || (request.socket.encrypted ? "https" : "http")).split(",")[0];
+  return origin === `${proto}://${request.headers.host}`;
+}
+function loginRateKey(request, username, area) { return `${requestIp(request)}|${area}|${String(username).toLowerCase()}`; }
+function loginBlocked(key) { const s=loginAttempts.get(key); if(!s)return false; if(s.blockedUntil>Date.now())return true; if(s.blockedUntil)loginAttempts.delete(key); return false; }
+function recordLoginFailure(key) { const now=Date.now(),s=loginAttempts.get(key)||{count:0,first:now,blockedUntil:0}; if(now-s.first>900000){s.count=0;s.first=now} s.count++; if(s.count>=5)s.blockedUntil=now+900000; loginAttempts.set(key,s); }
+async function audit(request, user, action, entityType=null, entityId=null, details={}) {
+  if(!database)return;
+  try{await database.query(`insert into public.audit_log(user_id,username,action,entity_type,entity_id,ip_address,details)
+    values($1,$2,$3,$4,$5,nullif($6,'')::inet,$7::jsonb)`,[user?.id||null,user?.username||user?.usuario||null,action,entityType,entityId,requestIp(request),JSON.stringify(details)]);}catch(error){console.warn("No fue posible registrar la bitácora:",error.message)}
 }
 
 function parseCookies(request) {
@@ -68,9 +101,9 @@ function signSession(user) {
     usuario: user.username,
     nombre: user.full_name,
     rol: user.role,
-    exp: Date.now() + 365 * 24 * 60 * 60 * 1000
+    exp: Date.now() + SESSION_MAX_AGE_SECONDS * 1000
   })).toString("base64url");
-  const signature = crypto.createHmac("sha256", SESSION_SECRET).update(payload).digest("base64url");
+  const signature = crypto.createHmac("sha256", effectiveSessionSecret).update(payload).digest("base64url");
   return `${payload}.${signature}`;
 }
 
@@ -79,7 +112,7 @@ function readSession(request, cookieName = "advisor_session") {
   if (!token) return null;
   const [payload, signature] = token.split(".");
   if (!payload || !signature) return null;
-  const expected = crypto.createHmac("sha256", SESSION_SECRET).update(payload).digest("base64url");
+  const expected = crypto.createHmac("sha256", effectiveSessionSecret).update(payload).digest("base64url");
   const actualBuffer = Buffer.from(signature);
   const expectedBuffer = Buffer.from(expected);
   if (actualBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(actualBuffer, expectedBuffer)) return null;
@@ -145,23 +178,29 @@ async function apiLogin(request, response) {
   const password = String(body.password || "");
   const area = body.area === "admin" ? "admin" : "advisor";
   if (!username) { sendJson(response, 400, { ok: false, code: "username_required" }); return; }
+  const rateKey = loginRateKey(request, username, area);
+  if (loginBlocked(rateKey)) { sendJson(response,429,{ok:false,code:"too_many_attempts",message:"Demasiados intentos. Espere 15 minutos antes de volver a intentar."}); return; }
 
   const result = await database.query(
     "select id, username::text, full_name, password_hash, role from public.app_users where active = true and lower(username::text) = lower($1) limit 1",
     [username]
   );
   const user = result.rows[0];
-  const validPassword = user && (!user.password_hash || await bcrypt.compare(password, user.password_hash));
+  const validPassword = user && user.password_hash && password && await bcrypt.compare(password, user.password_hash);
   if (!user || !validPassword) {
+    recordLoginFailure(rateKey);
+    await audit(request,{username},"LOGIN_FAILED","account",null,{area});
     sendJson(response, 401, { ok: false, code: "invalid_credentials", message: "Usuario o contraseña incorrectos." });
     return;
   }
   if (area === "admin" && user.role !== "admin") { sendJson(response,403,{ok:false,code:"admin_required",message:"Este usuario no tiene permisos de administración."}); return; }
   if (area === "advisor" && user.role !== "advisor") { sendJson(response,403,{ok:false,code:"advisor_required",message:"Este usuario corresponde al área administrativa."}); return; }
 
+  loginAttempts.delete(rateKey);
+  await audit(request,user,"LOGIN_SUCCESS","account",user.id,{area});
   const token = signSession(user);
   const cookieName = area === "admin" ? "admin_session" : "advisor_session";
-  response.setHeader("Set-Cookie", `${cookieName}=${encodeURIComponent(token)}; Max-Age=31536000; Path=/; HttpOnly; Secure; SameSite=Lax`);
+  response.setHeader("Set-Cookie", `${cookieName}=${encodeURIComponent(token)}; Max-Age=${SESSION_MAX_AGE_SECONDS}; Path=/; HttpOnly; Secure; SameSite=Strict`);
   sendJson(response, 200, { ok: true, user: { usuario: user.username, nombre: user.full_name, rol: user.role } });
 }
 
@@ -170,6 +209,12 @@ function requireAdmin(request, response) {
   if (!session) { sendJson(response, 401, { ok: false, code: "unauthorized" }); return null; }
   if (session.rol !== "admin") { sendJson(response, 403, { ok: false, code: "admin_required" }); return null; }
   return session;
+}
+
+async function isActiveAdminSession(session){
+  if(!session||session.rol!=="admin"||!database)return false;
+  const result=await database.query("select 1 from public.app_users where id=$1 and role='admin' and active=true",[session.id]);
+  return result.rowCount===1;
 }
 
 async function apiAdminData(request, response) {
@@ -288,21 +333,21 @@ async function apiAccountSecurity(request, response) {
   const session = requireAdmin(request, response); if (!session) return;
   let body; try { body = await readJsonBody(request); } catch (error) { sendJson(response, 400, { ok:false, code:error.message }); return; }
   const currentPassword=String(body.currentPassword||""), newPassword=String(body.newPassword||""), recoveryCode=String(body.recoveryCode||"");
-  if (newPassword && newPassword.length < 8) { sendJson(response,400,{ok:false,message:"La contraseña debe tener al menos 8 caracteres."}); return; }
+  if (newPassword.length < 10) { sendJson(response,400,{ok:false,message:"La contraseña debe tener al menos 10 caracteres."}); return; }
   if (recoveryCode.length < 10) { sendJson(response,400,{ok:false,message:"La clave de recuperación debe tener al menos 10 caracteres."}); return; }
   const result=await database.query("select password_hash from public.app_users where id=$1 and active=true",[session.id]);
   const user=result.rows[0]; if(!user){sendJson(response,401,{ok:false});return}
   if(user.password_hash && !await bcrypt.compare(currentPassword,user.password_hash)){sendJson(response,401,{ok:false,message:"La contraseña actual es incorrecta."});return}
-  const passwordHash=newPassword?await bcrypt.hash(newPassword,12):null;
+  const passwordHash=await bcrypt.hash(newPassword,12);
   const recoveryHash=await bcrypt.hash(recoveryCode,12);
   await database.query("update public.app_users set password_hash=$1,recovery_code_hash=$2 where id=$3",[passwordHash,recoveryHash,session.id]);
-  sendJson(response,200,{ok:true,message:newPassword?"Contraseña y recuperación configuradas.":"Acceso sin contraseña y recuperación configurada."});
+  sendJson(response,200,{ok:true,message:"Contraseña y recuperación configuradas."});
 }
 
 async function apiRecoverAccess(request,response){
   let body; try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false});return}
   const username=String(body.username||"").trim(), recoveryCode=String(body.recoveryCode||""), newPassword=String(body.newPassword||"");
-  if(!username||recoveryCode.length<10||newPassword.length<8){sendJson(response,400,{ok:false,message:"Complete los datos; la contraseña nueva requiere 8 caracteres."});return}
+  if(!username||recoveryCode.length<10||newPassword.length<10){sendJson(response,400,{ok:false,message:"Complete los datos; la contraseña nueva requiere 10 caracteres."});return}
   const result=await database.query("select id,recovery_code_hash from public.app_users where active=true and role='admin' and lower(username::text)=lower($1) limit 1",[username]);
   const user=result.rows[0];
   if(!user||!user.recovery_code_hash||!await bcrypt.compare(recoveryCode,user.recovery_code_hash)){sendJson(response,401,{ok:false,message:"Usuario o clave de recuperación incorrectos."});return}
@@ -316,8 +361,8 @@ async function apiCreateUser(request,response){
   let body;try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false});return}
   const username=String(body.username||"").trim(),fullName=String(body.fullName||"").trim(),password=String(body.password||"");
   if(!username||!fullName){sendJson(response,400,{ok:false,message:"Capture nombre y usuario."});return}
-  if(password&&password.length<8){sendJson(response,400,{ok:false,message:"La contraseña debe tener al menos 8 caracteres o quedar vacía."});return}
-  const hash=password?await bcrypt.hash(password,12):null;
+  if(password.length<10){sendJson(response,400,{ok:false,message:"La contraseña es obligatoria y debe tener al menos 10 caracteres."});return}
+  const hash=await bcrypt.hash(password,12);
   try{
     await database.query("insert into public.app_users(username,full_name,password_hash,role,active) values($1,$2,$3,'advisor',true)",[username,fullName,hash]);
     sendJson(response,201,{ok:true});
@@ -476,6 +521,7 @@ async function apiCreateAdvisory(request, response, session) {
     `, [student.rows[0].id, session.id, ids.subject_id, ids.reason_id, ids.period_id,
         data.comments, data.referred, data.startedAt.toISOString(), data.endedAt.toISOString(), duration]);
     await client.query("commit");
+    await audit(request,session,"ADVISORY_CREATED","advisory",inserted.rows[0].id,{enrollment:data.enrollment,period:data.period});
     sendJson(response, 201, { ok: true, id: inserted.rows[0].id });
   } catch (error) {
     await client.query("rollback");
@@ -544,7 +590,11 @@ async function databaseHealth() {
 }
 
 const server = http.createServer(async (request, response) => {
+  setSecurityHeaders(response);
   const requestUrl = new URL(request.url, "http://localhost");
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method) && !sameOrigin(request)) {
+    sendJson(response,403,{ok:false,code:"invalid_origin",message:"Solicitud bloqueada por seguridad."}); return;
+  }
   if (requestUrl.pathname === "/api/health") {
     if (request.method !== "GET" && request.method !== "HEAD") { sendJson(response, 405, { ok: false }); return; }
     const result = await databaseHealth();
@@ -578,7 +628,8 @@ const server = http.createServer(async (request, response) => {
   if (requestUrl.pathname === "/api/admin/session") {
     if (request.method !== "GET") { sendJson(response, 405, { ok: false }); return; }
     const session = readSession(request, "admin_session");
-    sendJson(response, session && session.rol === "admin" ? 200 : 401, session && session.rol === "admin" ? { ok:true,user:session } : { ok:false });
+    const valid=await isActiveAdminSession(session);
+    sendJson(response, valid ? 200 : 401, valid ? { ok:true,user:session } : { ok:false });
     return;
   }
 
@@ -658,14 +709,14 @@ const server = http.createServer(async (request, response) => {
 
   if (requestUrl.pathname === "/api/logout") {
     if (request.method !== "POST") { sendJson(response, 405, { ok: false }); return; }
-    response.setHeader("Set-Cookie", "advisor_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax");
+    response.setHeader("Set-Cookie", "advisor_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict");
     sendJson(response, 200, { ok: true });
     return;
   }
 
   if (requestUrl.pathname === "/api/admin/logout") {
     if (request.method !== "POST") { sendJson(response,405,{ok:false}); return; }
-    response.setHeader("Set-Cookie", "admin_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax");
+    response.setHeader("Set-Cookie", "admin_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict");
     sendJson(response,200,{ok:true}); return;
   }
 
@@ -737,9 +788,18 @@ const server = http.createServer(async (request, response) => {
   });
 });
 
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Sistema de asesorías disponible en el puerto ${PORT}`);
-});
+async function startServer(){
+  if(database&&process.env.ADMIN_INITIAL_PASSWORD){
+    const pending=await database.query("select id from public.app_users where role='admin' and password_hash is null");
+    if(pending.rowCount){
+      const hash=await bcrypt.hash(process.env.ADMIN_INITIAL_PASSWORD,12);
+      await database.query("update public.app_users set password_hash=$1 where role='admin' and password_hash is null",[hash]);
+      console.log("Contraseña administrativa inicial configurada de forma segura.");
+    }
+  }
+  server.listen(PORT,"0.0.0.0",()=>console.log(`Sistema de asesorías disponible en el puerto ${PORT}`));
+}
+startServer().catch(error=>{console.error("No fue posible iniciar el sistema:",error.message);process.exit(1)});
 
 async function shutdown() {
   server.close(async () => {

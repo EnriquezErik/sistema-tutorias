@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Registro de Asesorías</title><link rel="stylesheet" href="styles.css?v=40"></head>
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Registro de Asesorías</title><link rel="stylesheet" href="styles.css?v=41"></head>
 <body>
 <div id="loginScreen" class="login-screen">
   <div class="login-card">
@@ -51,21 +51,4 @@
   </table>
 </section>
 
-<script>
-(function(){
-  const isBridge=new URLSearchParams(location.search).get('bridge')==='1';
-  if(!isBridge)return;
-  document.documentElement.style.display='none';
-  function read(k,fb){try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(fb))}catch(e){return fb}}
-  function payload(){return {type:'asesorias-data',records:read('asesorias_demo',[]),students:read('alumnos_demo',[]),users:read('asesor_users_demo',[]),catalogs:read('catalogs_demo',{}),periods:read('periods_demo',[]),school:read('school_config_demo',{})};}
-  window.addEventListener('message',e=>{
-    const d=e.data||{}; if(!d||d.type!=='asesorias-request')return;
-    if(d.action==='get'){e.source?.postMessage(payload(),'*');}
-    if(d.action==='setCatalogs'){try{localStorage.setItem('catalogs_demo',JSON.stringify(d.catalogs||{}));}catch(err){}}
-    if(d.action==='setPeriods'){try{localStorage.setItem('periods_demo',JSON.stringify(d.periods||[]));}catch(err){}}
-    if(d.action==='setUsers'){try{localStorage.setItem('asesor_users_demo',JSON.stringify(d.users||[]));e.source?.postMessage(payload(),'*');}catch(err){}}
-  });
-  window.parent.postMessage({type:'asesorias-bridge-ready'},'*');
-})();
-</script>
-<script src="app.js?v=40"></script></body></html>
+<script src="app.js?v=41"></script></body></html>

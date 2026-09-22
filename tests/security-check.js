@@ -1,0 +1,16 @@
+const fs=require("fs");
+const assert=require("assert");
+const server=fs.readFileSync("server.js","utf8");
+const app=fs.readFileSync("app.js","utf8");
+const admin=fs.readFileSync("admin.js","utf8");
+assert(server.includes("SameSite=Strict"),"La cookie debe usar SameSite=Strict");
+assert(server.includes("HttpOnly; Secure"),"La cookie debe ser HttpOnly y Secure");
+assert(server.includes("Content-Security-Policy"),"Falta CSP");
+assert(server.includes("SESSION_MAX_AGE_SECONDS"),"Falta caducidad configurable");
+assert(server.includes("too_many_attempts"),"Falta limitación de intentos");
+assert(!server.includes("!user.password_hash ||"),"No debe permitirse acceso sin contraseña");
+assert(!app.includes("asesor_session_local"),"La sesión no debe exponerse a JavaScript");
+assert(!app.includes("function localRecords"),"No debe existir respaldo local de asesorías");
+assert(app.includes("sessionStorage.setItem(activeKey()"),"La asesoría activa debe sobrevivir F5 solo en la pestaña");
+assert(admin.includes("centralAdminData?.advisories||[]"),"Administración debe consultar datos centrales");
+console.log("Controles esenciales de seguridad: OK");

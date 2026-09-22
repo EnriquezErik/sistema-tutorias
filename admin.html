@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Administración · Asesorías</title>
-<link rel="stylesheet" href="styles.css?v=40">
+<link rel="stylesheet" href="styles.css?v=41">
 </head>
 <body>
 <div id="adminLoginScreen" class="login-screen">
@@ -11,7 +11,7 @@
     <div class="login-logo">LOGO</div><h1>Administración</h1><p class="login-subtitle">Acceso exclusivo del administrador</p>
     <div id="adminLoginForm">
       <label>Usuario<input id="adminLoginUser" autocomplete="username" placeholder="Administrador"></label>
-      <label>Contraseña<input id="adminLoginPassword" type="password" autocomplete="current-password" placeholder="Opcional mientras no esté configurada"></label>
+      <label>Contraseña<input id="adminLoginPassword" type="password" autocomplete="current-password" placeholder="Contraseña obligatoria"></label>
       <button id="adminLoginBtn" class="primary login-btn">INGRESAR</button>
       <button id="showRecoveryBtn" class="secondary login-btn" type="button">Recuperar acceso</button>
     </div>
@@ -88,14 +88,14 @@
 
   <section class="card" id="catalogos">
     <div class="section-title">Catálogos</div>
-    <div class="muted catalog-intro">Alumnos y asesores se consultan desde base de datos.</div>
+    <div class="muted catalog-intro">Alumnos y asesores se consultan desde PostgreSQL. La edición central de los demás catálogos se incorporará gradualmente.</div>
     <div class="catalog-current" id="catalogCurrent">Catálogo seleccionado: <strong>Alumnos</strong></div>
     <div class="catalog-grid admin-catalog-nav">
       <button class="secondary" data-target="cat-alumnos">Alumnos</button><button class="secondary" data-target="cat-asesores">Asesores</button><button class="secondary" data-target="cat-materias">Materias</button><button class="secondary" data-target="cat-carreras">Carreras</button><button class="secondary" data-target="cat-grupos">Grupos</button><button class="secondary" data-target="cat-motivos">Motivos</button><button class="secondary" data-target="cat-cuatrimestres">Cuatrimestres</button>
     </div>
     <div class="catalog-sections catalog-tabs">
       <section class="catalog-panel" id="cat-alumnos"><div class="catalog-head"><h3>Alumnos</h3><span id="catAlumnosCount"></span></div><input class="catalog-search" id="searchAlumnos" placeholder="Buscar matrícula o nombre..."><div class="table-wrap compact-table catalog-table-wrap"><table><thead><tr><th>Matrícula</th><th>Nombre</th><th>Sexo</th><th>Carrera</th><th>Grupo</th><th>Turno</th></tr></thead><tbody id="catalogAlumnos"></tbody></table></div></section>
-      <section class="catalog-panel is-hidden" id="cat-asesores"><div class="catalog-head"><h3>Asesores</h3><span id="catAsesoresCount"></span></div><form class="catalog-add-row advisor-add-row visible" id="add-asesores" autocomplete="off" novalidate><label>Nombre completo<input id="newAdvisorName" name="fullName" placeholder="Escriba el nombre completo"></label><label>Usuario<input id="newAdvisorUser" name="username" placeholder="Escriba el usuario"></label><label>Contraseña (opcional)<input id="newAdvisorPassword" name="password" type="password" placeholder="Déjela vacía si no se requiere" autocomplete="new-password"></label><button class="primary small-btn" id="saveAdvisorBtn" type="submit">Agregar asesor</button><div class="advisor-form-message" id="advisorFormMessage" role="status" aria-live="polite"></div></form><input class="catalog-search" id="searchAsesores" placeholder="Buscar usuario o nombre..."><div class="table-wrap compact-table catalog-table-wrap"><table><thead><tr><th>Usuario</th><th>Nombre</th><th>Contraseña</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="catalogAsesores"></tbody></table></div></section>
+      <section class="catalog-panel is-hidden" id="cat-asesores"><div class="catalog-head"><h3>Asesores</h3><span id="catAsesoresCount"></span></div><form class="catalog-add-row advisor-add-row visible" id="add-asesores" autocomplete="off" novalidate><label>Nombre completo<input id="newAdvisorName" name="fullName" placeholder="Escriba el nombre completo"></label><label>Usuario<input id="newAdvisorUser" name="username" placeholder="Escriba el usuario"></label><label>Contraseña obligatoria<input id="newAdvisorPassword" name="password" type="password" minlength="10" placeholder="Mínimo 10 caracteres" autocomplete="new-password"></label><button class="primary small-btn" id="saveAdvisorBtn" type="submit">Agregar asesor</button><div class="advisor-form-message" id="advisorFormMessage" role="status" aria-live="polite"></div></form><input class="catalog-search" id="searchAsesores" placeholder="Buscar usuario o nombre..."><div class="table-wrap compact-table catalog-table-wrap"><table><thead><tr><th>Usuario</th><th>Nombre</th><th>Contraseña</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="catalogAsesores"></tbody></table></div></section>
       <section class="catalog-panel is-hidden" id="cat-materias"><div class="catalog-head"><h3>Materias</h3><button class="secondary small-btn" data-add="materias">Agregar</button></div><div class="catalog-add-row" id="add-materias"><input placeholder="Nueva materia"><button class="primary small-btn">Guardar</button></div><div class="catalog-list" id="catalogMaterias"></div></section>
       <section class="catalog-panel is-hidden" id="cat-carreras"><div class="catalog-head"><h3>Carreras</h3><button class="secondary small-btn" data-add="carreras">Agregar</button></div><div class="catalog-add-row" id="add-carreras"><input placeholder="Nueva carrera"><button class="primary small-btn">Guardar</button></div><div class="catalog-list" id="catalogCarreras"></div></section>
       <section class="catalog-panel is-hidden" id="cat-grupos"><div class="catalog-head"><h3>Grupos</h3><button class="secondary small-btn" data-add="grupos">Agregar</button></div><form class="catalog-add-row group-add-row" id="add-grupos"><label>Carrera<select id="newGroupCareer"><option value="">Seleccione</option></select></label><label>Grupo<input id="newGroupName" placeholder="Ej. IAEV-PA-06"></label><button class="primary small-btn" id="saveGroupBtn" type="submit">Guardar</button><div class="advisor-form-message" id="groupFormMessage" role="status" aria-live="polite"></div></form><div class="catalog-list growing-catalog-list" id="catalogGrupos"></div></section>
@@ -112,11 +112,11 @@
 
   <section class="card" id="seguridad">
     <div class="section-title">Seguridad de la cuenta administrativa</div>
-    <div class="muted section-note">Puede conservar el acceso sin contraseña. Configure siempre una clave de recuperación de al menos 10 caracteres y guárdela en un lugar seguro.</div>
+    <div class="muted section-note">La contraseña es obligatoria. Configure también una clave de recuperación de al menos 10 caracteres y guárdela en un lugar seguro.</div>
     <div class="security-settings">
-      <label>Contraseña actual<input id="currentAdminPassword" type="password" autocomplete="current-password" placeholder="Déjela vacía si todavía no existe"></label>
-      <label>Contraseña nueva<input id="newAdminPassword" type="password" minlength="8" autocomplete="new-password" placeholder="Opcional; mínimo 8 caracteres"></label>
-      <label>Confirmar contraseña<input id="confirmAdminPassword" type="password" minlength="8" autocomplete="new-password"></label>
+      <label>Contraseña actual<input id="currentAdminPassword" type="password" autocomplete="current-password"></label>
+      <label>Contraseña nueva<input id="newAdminPassword" type="password" minlength="10" autocomplete="new-password" placeholder="Mínimo 10 caracteres"></label>
+      <label>Confirmar contraseña<input id="confirmAdminPassword" type="password" minlength="10" autocomplete="new-password"></label>
       <label>Clave de recuperación<input id="newRecoveryCode" type="password" minlength="10" autocomplete="off" placeholder="Mínimo 10 caracteres"></label>
       <button id="saveAdminSecurityBtn" class="primary" type="button">Guardar seguridad</button>
     </div>
@@ -124,8 +124,7 @@
   </section>
 </main>
 
-<footer class="site-footer"><span id="adminFooterText">© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.</span><br><span id="adminVersion">Versión 1.0.0 · Administración</span></footer>
+<footer class="site-footer"><span id="adminFooterText">© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.</span><br><span id="adminVersion">Versión 1.7.0 · Administración</span></footer>
 <div id="adminPrintReport" class="print-only"></div>
-<iframe id="dataBridge" src="index.html?bridge=1" title="Sincronización de datos" style="display:none" aria-hidden="true"></iframe>
-<script src="admin.js?v=40"></script>
+<script src="admin.js?v=41"></script>
 </body></html>
