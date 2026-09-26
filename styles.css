@@ -104,3 +104,27 @@
 .group-add-row{align-items:end;flex-wrap:wrap}.group-add-row label{display:grid;gap:4px;min-width:220px;flex:1;font-size:11px;font-weight:700}.group-add-row label input,.group-add-row label select{width:100%;margin:0}.group-item-info{display:grid;gap:3px;min-width:0}.group-item-info small{color:#65717a}.growing-catalog-list{max-height:420px;overflow:auto;padding-right:4px}
 @media(max-width:800px){.advisor-add-row.visible{grid-template-columns:1fr}}
 .security-settings{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr)) auto;gap:10px;align-items:end}.security-settings input{padding:8px}.security-settings button{white-space:nowrap}.login-card [hidden]{display:none!important}.login-card .secondary.login-btn{margin-top:8px}.admin-head-actions #adminCurrentUser{white-space:nowrap;font-weight:700}@media(max-width:1000px){.security-settings{grid-template-columns:1fr 1fr}.security-settings button{grid-column:1/-1}}@media(max-width:600px){.security-settings{grid-template-columns:1fr}}
+
+/* Estadísticas v41: rediseño visual tipo dashboard sin alterar indicadores ni tablas */
+#estadisticas{background:#eef8fb;border-color:#d9edf2;padding:18px}
+#estadisticas .stats-toolbar{background:#fff;border:1px solid #deeaee;border-radius:14px;padding:12px 14px;box-shadow:0 4px 14px #174b5d0d}
+#estadisticas .section-title{font-size:20px;color:#173e4b}
+#estadisticas .section-note{margin:2px 2px 14px;color:#647780}
+#estadisticas .admin-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:stretch}
+#estadisticas .stats-viz-panel{background:#fff;border:1px solid #dce9ed;border-radius:16px;padding:14px;box-shadow:0 6px 18px #174b5d0d;min-width:0;overflow:hidden}
+#estadisticas .stats-viz-panel .sub-title{margin:0 0 10px;font-size:14px;color:#284c58}
+#estadisticas .stats-mini-chart{height:116px;display:flex;align-items:flex-end;gap:7px;padding:10px 8px 6px;border-radius:12px;background:linear-gradient(180deg,#f8fcfd 0%,#eef8fa 100%);border:1px solid #e7f1f3;margin-bottom:10px;overflow:hidden}
+#estadisticas .mini-bar-wrap{height:100%;flex:1;min-width:18px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px}
+#estadisticas .mini-bar{width:min(28px,80%);min-height:3px;border-radius:8px 8px 3px 3px;background:#1fbfc5;box-shadow:0 2px 6px #1fbfc533}
+#estadisticas .mini-bar:nth-child(even){background:#ffbd3e}
+#estadisticas .mini-bar-label{width:100%;font-size:8px;line-height:1.05;color:#687b82;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#estadisticas .stats-viz-panel table{background:#fff}
+#estadisticas .stats-viz-panel th{background:#f3f9fa;color:#47616a}
+#estadisticas .stats-viz-panel td,#estadisticas .stats-viz-panel th{padding:7px 8px}
+#estadisticas .stats-donut-chart{display:grid;place-items:center;position:relative}
+#estadisticas .donut{width:88px;height:88px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(#20bec4 0 var(--yes),#ffbd3e var(--yes) 100%);position:relative}
+#estadisticas .donut:after{content:"";position:absolute;width:58px;height:58px;background:#fff;border-radius:50%}
+#estadisticas .donut strong{position:relative;z-index:1;font-size:16px;color:#274c58}
+#estadisticas .donut-caption{font-size:9px;color:#687b82;text-align:center;margin-top:4px}
+@media(max-width:900px){#estadisticas .admin-stats-grid{grid-template-columns:1fr}}
+@media print{#estadisticas .stats-mini-chart{display:none!important}#estadisticas{background:#fff;border:0;padding:0}#estadisticas .stats-viz-panel{box-shadow:none;border:1px solid #bbb;border-radius:0}}
