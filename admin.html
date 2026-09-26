@@ -41,35 +41,13 @@
       <div><div class="section-title">Panel administrativo</div><div class="muted">Resumen del cuatrimestre seleccionado.</div></div>
       <div class="dashboard-actions"><label class="period-picker">Cuatrimestre consultado<select id="dashboardPeriod"></select></label><a class="button secondary" href="index.html">Ir a registro</a></div>
     </div>
-    <div class="stats compact-stats six-stats dashboard-kpis">
-      <div class="stat dashboard-kpi"><span>Alumnos atendidos</span><strong id="students">0</strong><small>Matrículas únicas</small></div>
-      <div class="stat dashboard-kpi"><span>Asesorías</span><strong id="sessions">0</strong><small>En el cuatrimestre</small></div>
-      <div class="stat dashboard-kpi"><span>Horas acumuladas</span><strong id="hours">0.00</strong><small>Tiempo de atención</small></div>
-      <div class="stat dashboard-kpi"><span>Asesores activos</span><strong id="advisors">0</strong><small>Usuarios habilitados</small></div>
-      <div class="stat dashboard-kpi"><span>Materias atendidas</span><strong id="subjectsUsed">0</strong><small>Con al menos una asesoría</small></div>
-      <div class="stat dashboard-kpi"><span>Canalizaciones</span><strong id="referrals">0</strong><small>A psicopedagogía</small></div>
-    </div>
-    <div class="dashboard-visual-grid" aria-label="Resumen gráfico del cuatrimestre">
-      <article class="dashboard-chart dashboard-chart-wide">
-        <div class="dashboard-chart-head"><div><h3>Actividad de asesorías</h3><p>Asesorías registradas por fecha</p></div><strong id="activityTotal">0</strong></div>
-        <div id="activityChart" class="activity-chart"></div>
-      </article>
-      <article class="dashboard-chart">
-        <div class="dashboard-chart-head"><div><h3>Canalizaciones</h3><p>Distribución del periodo</p></div></div>
-        <div id="referralChart" class="donut-chart-wrap"></div>
-      </article>
-      <article class="dashboard-chart">
-        <div class="dashboard-chart-head"><div><h3>Materias con mayor actividad</h3><p>Número de asesorías</p></div></div>
-        <div id="subjectChart" class="bar-list-chart"></div>
-      </article>
-      <article class="dashboard-chart">
-        <div class="dashboard-chart-head"><div><h3>Motivos de asesoría</h3><p>Principales motivos registrados</p></div></div>
-        <div id="reasonChart" class="bar-list-chart"></div>
-      </article>
-      <article class="dashboard-chart">
-        <div class="dashboard-chart-head"><div><h3>Actividad por carrera</h3><p>Asesorías por programa educativo</p></div></div>
-        <div id="careerChart" class="bar-list-chart"></div>
-      </article>
+    <div class="stats compact-stats six-stats">
+      <div class="stat"><span>Alumnos</span><strong id="students">0</strong></div>
+      <div class="stat"><span>Asesorías</span><strong id="sessions">0</strong></div>
+      <div class="stat"><span>Horas acumuladas</span><strong id="hours">0.00</strong></div>
+      <div class="stat"><span>Asesores</span><strong id="advisors">0</strong></div>
+      <div class="stat"><span>Materias con asesorías</span><strong id="subjectsUsed">0</strong></div>
+      <div class="stat"><span>Canalizaciones a psicopedagogía</span><strong id="referrals">0</strong></div>
     </div>
   </section>
 
@@ -146,7 +124,7 @@
   </section>
 </main>
 
-<footer class="site-footer"><span id="adminFooterText">© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.</span><br><span id="adminVersion">Versión 1.1.0 · Administración</span></footer>
+<footer class="site-footer"><span id="adminFooterText">© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.</span><br><span id="adminVersion">Versión 1.7.0 · Administración</span></footer>
 <div id="adminPrintReport" class="print-only"></div>
 <script src="admin.js?v=41"></script>
 </body></html>
