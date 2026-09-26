@@ -225,10 +225,6 @@ values
   ('Motivos sociales')
 on conflict (name) do nothing;
 
-insert into public.app_users (username, full_name, password_hash, role, active)
-values ('Erik', 'Erik', null, 'advisor', true)
-on conflict (username) do nothing;
-
 insert into public.schema_migrations (version, description)
 values ('001', 'Esquema inicial del Sistema de Tutorías')
 on conflict (version) do nothing;
