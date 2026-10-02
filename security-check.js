@@ -12,5 +12,7 @@ assert(!server.includes("!user.password_hash ||"),"No debe permitirse acceso sin
 assert(!app.includes("asesor_session_local"),"La sesión no debe exponerse a JavaScript");
 assert(!app.includes("function localRecords"),"No debe existir respaldo local de asesorías");
 assert(app.includes("sessionStorage.setItem(activeKey()"),"La asesoría activa debe sobrevivir F5 solo en la pestaña");
+assert(app.includes("/api/advisories/active"),"La asesoría activa debe respaldarse en PostgreSQL");
+assert(server.includes("apiGetActiveAdvisory"),"Falta recuperación de asesoría activa");
 assert(admin.includes("centralAdminData?.advisories||[]"),"Administración debe consultar datos centrales");
 console.log("Controles esenciales de seguridad: OK");

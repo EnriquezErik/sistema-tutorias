@@ -1,4 +1,4 @@
-# Sistema de Asesorías Académicas · versión 41
+# Sistema de Asesorías Académicas · versión 41.1
 
 La v41 parte de la v40 estable y mantiene el registro de asesorías, catálogos, dashboard, estadísticas, filtros, impresión y exportación. Su objetivo es fortalecer la protección de información personal sin rediseñar las páginas.
 
@@ -25,6 +25,8 @@ Para una instalación nueva ejecute, en orden:
 3. `database/003_fortalecimiento_seguridad.sql`
 
 Para actualizar desde v40 ejecute únicamente la migración 003. Los registros existentes no se eliminan.
+
+Para actualizar desde v41 ejecute `database/004_asesoria_activa_segura.sql`. Esta migración permite recuperar una asesoría en curso después de cerrar la página y sincroniza el nombre institucional cuando aún conserva el texto provisional.
 
 ## Publicación
 

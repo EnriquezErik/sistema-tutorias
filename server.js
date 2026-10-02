@@ -437,11 +437,42 @@ async function apiListAdvisories(request, response, session) {
       join public.advisory_reasons r on r.id = a.reason_id
       join public.periods p on p.id = a.period_id
       join public.app_users u on u.id = a.advisor_id
-     where ($2::boolean or a.advisor_id = $1::uuid)
      order by a.started_at desc
      limit 1000
-  `, [session.id, session.rol === "admin"]);
+  `);
   sendJson(response, 200, { ok: true, advisories: result.rows.map(advisoryRow) });
+}
+
+function activeAdvisoryData(body){
+  const fields=body&&typeof body.fields==="object"&&!Array.isArray(body.fields)?body.fields:{};
+  const clean={};
+  for(const key of ["matricula","nombre","sexo","carrera","grupo","turno","materia","motivo","psico","comentarios"]){
+    clean[key]=String(fields[key]||"").trim().slice(0,key==="comentarios"?2000:250);
+  }
+  return clean;
+}
+
+async function apiGetActiveAdvisory(request,response,session){
+  const result=await database.query("select started_at,form_data,updated_at from public.active_advisories where advisor_id=$1",[session.id]);
+  sendJson(response,200,{ok:true,active:result.rows[0]||null});
+}
+
+async function apiSaveActiveAdvisory(request,response,session){
+  let body;try{body=await readJsonBody(request,32768)}catch(error){sendJson(response,400,{ok:false,code:error.message});return}
+  const startedAt=new Date(body.startedAt),fields=activeAdvisoryData(body);
+  if(Number.isNaN(startedAt.getTime())||!fields.matricula||!fields.nombre){sendJson(response,400,{ok:false,message:"No fue posible iniciar la asesoría porque faltan datos."});return}
+  await database.query(`insert into public.active_advisories(advisor_id,started_at,form_data)
+    values($1,$2,$3::jsonb) on conflict(advisor_id) do update set started_at=excluded.started_at,form_data=excluded.form_data,updated_at=now()`,
+    [session.id,startedAt.toISOString(),JSON.stringify(fields)]);
+  await audit(request,session,"ACTIVE_ADVISORY_SAVED","active_advisory",session.id,{enrollment:fields.matricula});
+  sendJson(response,200,{ok:true});
+}
+
+async function apiUpdateActiveAdvisory(request,response,session){
+  let body;try{body=await readJsonBody(request,32768)}catch(error){sendJson(response,400,{ok:false,code:error.message});return}
+  const fields=activeAdvisoryData(body);
+  const result=await database.query("update public.active_advisories set form_data=$2::jsonb,updated_at=now() where advisor_id=$1",[session.id,JSON.stringify(fields)]);
+  sendJson(response,result.rowCount?200:404,result.rowCount?{ok:true}:{ok:false,code:"active_advisory_not_found"});
 }
 
 async function apiCreateAdvisory(request, response, session) {
@@ -520,6 +551,7 @@ async function apiCreateAdvisory(request, response, session) {
       returning id
     `, [student.rows[0].id, session.id, ids.subject_id, ids.reason_id, ids.period_id,
         data.comments, data.referred, data.startedAt.toISOString(), data.endedAt.toISOString(), duration]);
+    await client.query("delete from public.active_advisories where advisor_id=$1",[session.id]);
     await client.query("commit");
     await audit(request,session,"ADVISORY_CREATED","advisory",inserted.rows[0].id,{enrollment:data.enrollment,period:data.period});
     sendJson(response, 201, { ok: true, id: inserted.rows[0].id });
@@ -726,6 +758,19 @@ const server = http.createServer(async (request, response) => {
     if (!database) { sendJson(response, 503, { ok: false, code: "database_not_configured" }); return; }
     try { await apiFindStudent(request, response, decodeURIComponent(studentMatch[1])); }
     catch (error) { console.error("Error al buscar alumno:", error.message); sendJson(response, 503, { ok: false, code: "database_error" }); }
+    return;
+  }
+
+  if (requestUrl.pathname === "/api/advisories/active") {
+    if (!database) { sendJson(response,503,{ok:false,code:"database_not_configured"}); return; }
+    const session=requireSession(request,response);if(!session)return;
+    if(!await isActiveAdvisorSession(session)){sendJson(response,403,{ok:false,code:"inactive_account"});return}
+    try{
+      if(request.method==="GET")await apiGetActiveAdvisory(request,response,session);
+      else if(request.method==="POST")await apiSaveActiveAdvisory(request,response,session);
+      else if(request.method==="PATCH")await apiUpdateActiveAdvisory(request,response,session);
+      else sendJson(response,405,{ok:false});
+    }catch(error){console.error("Error en asesoría activa:",error.message);sendJson(response,503,{ok:false,code:"database_error"})}
     return;
   }
 
