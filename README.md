@@ -1,6 +1,10 @@
-# Sistema de Asesorías Académicas · versión 41
+# Sistema de Asesorías Académicas · versión declarada: v41
 
 La v41 parte de la v40 estable y mantiene el registro de asesorías, catálogos, dashboard, estadísticas, filtros, impresión y exportación. Su objetivo es fortalecer la protección de información personal sin rediseñar las páginas.
+
+Para orientarse entre archivos y funciones, consulte [`GUIA_DEL_CODIGO.md`](GUIA_DEL_CODIGO.md). Abra la carpeta raíz o `sistema-tutorias.code-workspace` en Visual Studio Code.
+
+Para conocer la función de cada archivo y los grupos principales de funciones, consulte [`GUIA_DEL_CODIGO.md`](GUIA_DEL_CODIGO.md). Abra la carpeta raíz o `sistema-tutorias.code-workspace` en Visual Studio Code.
 
 ## Seguridad incorporada
 

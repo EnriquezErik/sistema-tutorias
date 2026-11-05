@@ -1,9 +1,11 @@
+// CONFIGURACIÓN INICIAL: catálogos locales de respaldo y estado de la asesoría en curso.
 const DATA={schoolName:"NOMBRE DE LA INSTITUCIÓN",period:"Septiembre-Diciembre 2026",careers:["Seleccione","IAEV","ICM","IRC","ITIID","LTF","ISA"],groups:["Seleccione","IAEV-PA-08","IAEV-PA-07","ITIID-IA-02","ITIID-SM-02","ISA-SA-06","ICM-CYM-03","IRC-MPR-02","LTF 08","SW 28"],subjects:["Seleccione","Matemáticas","Física","Cálculo","Estadística","Programación","Álgebra"],reasons:["Seleccione","Motivos académicos","Motivos familiares","Motivos personales","Motivos sociales"],sexos:["Seleccione","Hombre","Mujer"],turnos:["Seleccione","Matutino","Vespertino"]};
 const $=s=>document.querySelector(s);let currentStart=null,timerId=null,remoteConfig=null,remoteRecords=[],savingAdvisory=false,secureUser=null;
 function activeKey(){return `asesoria_activa_${String(currentUser()?.usuario||'').toLowerCase()}`}
 function persistActiveSession(){if(!currentStart||!currentUser())return;const fields={};['matricula','nombre','sexo','carrera','grupo','turno','materia','motivo','psico','comentarios'].forEach(id=>fields[id]=$("#"+id)?.value||'');sessionStorage.setItem(activeKey(),JSON.stringify({start:currentStart.toISOString(),fields}))}
 function clearActiveSession(){if(currentUser())sessionStorage.removeItem(activeKey())}
 function restoreActiveAdvisory(){if(!currentUser())return;let saved;try{saved=JSON.parse(sessionStorage.getItem(activeKey())||'null')}catch(error){}if(!saved?.start||!saved.fields)return;currentStart=new Date(saved.start);if(Number.isNaN(currentStart.getTime())){clearActiveSession();currentStart=null;return}const f=saved.fields;for(const id of ['matricula','nombre','sexo','carrera'])if($("#"+id))$("#"+id).value=f[id]||'';updateGroupsForCareer();for(const id of ['grupo','turno','materia','motivo','psico','comentarios'])if($("#"+id))$("#"+id).value=f[id]||'';setStudentFields(false);$("#iniciar").disabled=true;$("#finalizar").disabled=false;$("#status").textContent='ASESORÍA EN CURSO';clearInterval(timerId);timerId=setInterval(updateTimer,1000);updateTimer()}
+// CONFIGURACIÓN Y CATÁLOGOS: consulta la configuración institucional y los datos remotos del servidor.
 function appConfig(){
   if(remoteConfig)return remoteConfig;
   let school={}; let cats={}; let periods=[];
@@ -67,6 +69,7 @@ async function refreshPeriodCatalog(){
   try{if(await loadRemoteConfig()){applyPeriodCatalog();updateGroupsForCareer(true);renderHistory()}}finally{refreshingPeriodCatalog=false}
 }
 
+// CAMPOS Y ALUMNOS: carga listas, vincula grupo con carrera y busca o presenta alumnos nuevos/existentes.
 function records(){return Array.isArray(remoteRecords)?remoteRecords:[]}
 function fill(id,arr){const e=$("#"+id);if(e)e.innerHTML=arr.map(x=>`<option>${x}</option>`).join("")}
 function updateGroupsForCareer(preserveSelection=false){const career=$("#carrera")?.value,group=$("#grupo"),previous=group?.value;if(!remoteConfig?.groupsByCareer||!career||career==="Seleccione")return;fill("grupo",["Seleccione",...(remoteConfig.groupsByCareer[career]||[])]);if(preserveSelection&&group&&Array.from(group.options).some(option=>option.value===previous))group.value=previous}
@@ -74,6 +77,7 @@ function setStudentFields(editable){["sexo","carrera","grupo","turno"].forEach(i
 function showFoundStudent(f){$("#nombre").value=f.nombre||f.full_name||"";$("#sexo").value=f.sexo||f.sex||"";$("#carrera").value=f.carrera||f.career||appConfig().careers[0];updateGroupsForCareer();$("#grupo").value=f.grupo||f.group_name||appConfig().groups[0];$("#turno").value=f.turno||f.shift||"Matutino";setStudentFields(false);$("#status").textContent="ALUMNO ENCONTRADO"}
 function showNewStudent(){$("#nombre").value="";$("#sexo").value="Seleccione";$("#carrera").value="Seleccione";$("#grupo").value="Seleccione";$("#turno").value="Seleccione";setStudentFields(true);$("#status").textContent="NUEVO ALUMNO";$("#nombre").focus();alert("Matrícula nueva. Capture los datos del alumno y seleccione el sexo.")}
 async function findStudent(){const m=$("#matricula").value.trim();if(!m){alert("Capture una matrícula.");return}$("#status").textContent="BUSCANDO ALUMNO...";try{const response=await fetch("/api/students/"+encodeURIComponent(m),{headers:{Accept:"application/json"}});if(response.status===401){showLogin();alert("Su sesión terminó. Ingrese nuevamente.");return}if(response.ok){const payload=await response.json();if(payload.student)showFoundStudent(payload.student);else showNewStudent();return}throw new Error("database_error")}catch(error){$("#status").textContent="SIN CONEXIÓN";alert("No fue posible consultar PostgreSQL. Intente nuevamente antes de registrar la asesoría.")}}
+// CICLO DE ASESORÍA: valida el alumno, inicia el cronómetro, guarda la asesoría y limpia el formulario.
 function startSession(){if(!$("#matricula").value.trim()||!$("#nombre").value.trim()){alert("Primero capture/busque la matrícula y el nombre del alumno.");return}if(!$("#sexo").value||$("#sexo").value==="Seleccione"||
 !$("#carrera").value||$("#carrera").value==="Seleccione"||
 !$("#grupo").value||$("#grupo").value==="Seleccione"||
@@ -104,6 +108,7 @@ async function finishSession(){
   clearActiveSession();clearInterval(timerId);timerId=null;currentStart=null;savingAdvisory=false;$("#iniciar").disabled=false;$("#finalizar").disabled=true;resetForm();renderHistory();
   alert("Asesoría guardada correctamente en la base de datos. El formulario está listo para el siguiente alumno.");
 }
+// HISTORIAL DEL ASESOR: aplica filtros, construye la tabla y prepara impresión/exportación CSV.
 function inRange(x,r,period){const d=new Date(x.creado),n=new Date();if(r==="all")return true;if(r==="day")return d.toDateString()===n.toDateString();if(r==="week"){const w=new Date(n);w.setDate(n.getDate()-n.getDay());w.setHours(0,0,0,0);return d>=w}if(r==="month")return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear();if(r==="quarter")return x.periodo===(period&&period!=="all"?period:appConfig().period);return true}
 function fmt(m){m=Number(m)||0;return `${Math.floor(m/60)}h ${String(m%60).padStart(2,"0")}m`}
 function escapeHTML(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
@@ -111,6 +116,7 @@ function renderHistory(){const b=$("#history tbody");if(!b)return;const range=$(
 function filteredRecords(){const range=$("#rangeFilter")?.value||"all",period=$("#periodFilter")?.value||"all";return records().filter(x=>inRange(x,range,period)&&(period==="all"||x.periodo===period))}
 function exportCSV(){const h=["Fecha","Inicio","Fin","Matrícula","Alumno","Sexo","Carrera","Grupo","Turno","Materia","Motivo","Comentarios","Psicopedagogía","Asesor","Periodo","Duración minutos"],rows=filteredRecords(),csv=[h,...rows.map(x=>[x.fecha,x.inicio,x.fin,x.matricula,x.nombre,x.sexo,x.carrera,x.grupo,x.turno,x.materia,x.motivo,x.comentarios,x.psico,x.asesor,x.periodo,x.duracionMinutos])].map(a=>a.map(v=>`"${String(v??"").replaceAll('"','""')}"`).join(",")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download="historial_asesorias.csv";a.click()}
 
+// ACCESO DEL ASESOR: inicia/restaura/cierra la sesión y sincroniza los registros con la API.
 async function loadRemoteAdvisories(){
   try{
     const response=await fetch("/api/advisories",{headers:{Accept:"application/json"}});
