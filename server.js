@@ -1,3 +1,4 @@
+// DEPENDENCIAS Y CONFIGURACIÓN: servidor HTTP, archivos, criptografía, PostgreSQL y variables de entorno.
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
@@ -40,6 +41,7 @@ const MIME_TYPES = {
 };
 const PUBLIC_FILES = new Set(["index.html","admin.html","styles.css","app.js","admin.js","favicon.ico"]);
 
+// ARCHIVOS PÚBLICOS Y RESPUESTAS: resuelve rutas permitidas y construye respuestas HTTP/JSON.
 function resolveRequestPath(requestUrl) {
   const pathname = decodeURIComponent(new URL(requestUrl, "http://localhost").pathname);
   const requestedFile = pathname === "/" ? "index.html" : pathname.replace(/^\/+/, "");
@@ -58,6 +60,7 @@ function sendJson(response, statusCode, body, headOnly = false) {
   response.end(headOnly ? undefined : payload);
 }
 
+// PROTECCIONES HTTP: encabezados, origen de solicitudes, límite de intentos y bitácora.
 function setSecurityHeaders(response) {
   response.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
   response.setHeader("X-Content-Type-Options", "nosniff");
@@ -83,6 +86,7 @@ async function audit(request, user, action, entityType=null, entityId=null, deta
     values($1,$2,$3,$4,$5,nullif($6,'')::inet,$7::jsonb)`,[user?.id||null,user?.username||user?.usuario||null,action,entityType,entityId,requestIp(request),JSON.stringify(details)]);}catch(error){console.warn("No fue posible registrar la bitácora:",error.message)}
 }
 
+// SESIONES: lectura y firma de cookies, validación de cuentas y límites del cuerpo JSON.
 function parseCookies(request) {
   const cookies = {};
   for (const part of String(request.headers.cookie || "").split(";")) {
@@ -146,6 +150,7 @@ function readJsonBody(request, limit = 16384) {
   });
 }
 
+// DATOS INICIALES Y AUTENTICACIÓN: catálogos para Registro e inicio de sesión.
 async function getBootstrap() {
   const [institution, periods, careers, groups, subjects, reasons] = await Promise.all([
     database.query("select school_name, footer_text, timezone from public.institution_settings where id = true"),
@@ -204,6 +209,7 @@ async function apiLogin(request, response) {
   sendJson(response, 200, { ok: true, user: { usuario: user.username, nombre: user.full_name, rol: user.role } });
 }
 
+// ÁREA ADMINISTRATIVA: autoriza el rol administrador y atiende datos, catálogos y cuentas.
 function requireAdmin(request, response) {
   const session = readSession(request, "admin_session");
   if (!session) { sendJson(response, 401, { ok: false, code: "unauthorized" }); return null; }
@@ -251,7 +257,7 @@ async function apiAdminData(request, response) {
     database.query(`select g.id, g.name::text, g.career_id, g.active, c.code::text as career_code
                       from public.student_groups g left join public.careers c on c.id=g.career_id
                      order by c.code nulls last, g.name`),
-    database.query("select id,code::text as name,active from public.careers order by code"),
+    database.query("select id,code::text as code,name,active from public.careers order by code"),
     database.query("select id,name::text,active from public.subjects order by name"),
     database.query("select id,name::text,active from public.advisory_reasons order by name")
   ]);
@@ -266,8 +272,16 @@ const simpleCatalogs={carreras:{table:"careers",column:"code",label:"carrera"},m
 async function apiCreateSimpleCatalog(request,response,key){
   if(!requireAdmin(request,response))return;const cfg=simpleCatalogs[key];
   let body;try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false,message:"Solicitud inválida."});return}
+  if(key==='carreras'){
+    const code=String(body.code||"").trim().toUpperCase(),name=String(body.name||"").trim();
+    if(!code||!name){sendJson(response,400,{ok:false,message:"Capture la clave y el nombre completo de la carrera."});return}
+    if(code.length>30||name.length>150){sendJson(response,400,{ok:false,message:"La clave admite hasta 30 caracteres y el nombre hasta 150."});return}
+    try{const result=await database.query("insert into public.careers(code,name,active) values($1,$2,true) returning id,code::text as code,name,active",[code,name]);sendJson(response,201,{ok:true,item:result.rows[0]})}
+    catch(error){if(error.code==='23505'){const existing=await database.query("select active from public.careers where lower(code::text)=lower($1) limit 1",[code]);sendJson(response,409,{ok:false,message:existing.rows[0]?.active?`La carrera ${code} ya se encuentra registrada y activa.`:`La carrera ${code} ya existe, pero está inactiva. Utilice el botón Reactivar.`});return}if(error.code==='22001'||error.code==='23514'){sendJson(response,400,{ok:false,message:"La clave o el nombre no cumplen el formato permitido por la base de datos."});return}throw error}
+    return;
+  }
   const name=String(body.name||"").trim();if(!name){sendJson(response,400,{ok:false,message:`Capture la ${cfg.label}.`});return}
-  try{const sql=key==='carreras'?"insert into public.careers(code,name,active) values($1,$1,true) returning id,code::text as name,active":`insert into public.${cfg.table}(${cfg.column},active) values($1,true) returning id,${cfg.column}::text as name,active`;const result=await database.query(sql,[name]);sendJson(response,201,{ok:true,item:result.rows[0]})}
+  try{const sql=`insert into public.${cfg.table}(${cfg.column},active) values($1,true) returning id,${cfg.column}::text as name,active`;const result=await database.query(sql,[name]);sendJson(response,201,{ok:true,item:result.rows[0]})}
   catch(error){if(error.code==='23505'){sendJson(response,409,{ok:false,message:`Ya existe esa ${cfg.label}.`});return}throw error}
 }
 async function apiSetSimpleCatalogActive(request,response,key,id){
@@ -329,6 +343,7 @@ async function apiSetPeriodActive(request,response,periodId){
   sendJson(response,200,{ok:true,period:result.rows[0]});
 }
 
+// CREDENCIALES ADMINISTRATIVAS: cambio de contraseña y recuperación de acceso.
 async function apiAccountSecurity(request, response) {
   const session = requireAdmin(request, response); if (!session) return;
   let body; try { body = await readJsonBody(request); } catch (error) { sendJson(response, 400, { ok:false, code:error.message }); return; }
@@ -378,6 +393,7 @@ async function apiSetUserActive(request,response,userId){
   sendJson(response,200,{ok:true,user:result.rows[0]});
 }
 
+// REGISTRO DE ASESORÍAS: autorización, búsqueda de alumnos, consulta y alta de asesorías.
 function requireSession(request, response) {
   const session = readSession(request);
   if (!session) sendJson(response, 401, { ok: false, code: "unauthorized", message: "La sesión no es válida." });
@@ -539,6 +555,7 @@ async function apiCreateAdvisory(request, response, session) {
   }
 }
 
+// SALUD DE BASE DE DATOS: comprueba la conexión y construye el estado del servicio.
 async function databaseHealth() {
   if (!database) {
     return {
@@ -589,6 +606,7 @@ async function databaseHealth() {
   }
 }
 
+// ENRUTADOR HTTP: dirige cada método y URL a su función/API o entrega los archivos web.
 const server = http.createServer(async (request, response) => {
   setSecurityHeaders(response);
   const requestUrl = new URL(request.url, "http://localhost");
@@ -788,6 +806,7 @@ const server = http.createServer(async (request, response) => {
   });
 });
 
+// CICLO DE VIDA: inicia el servidor y cierra correctamente el pool de PostgreSQL.
 async function startServer(){
   if(database&&process.env.ADMIN_INITIAL_PASSWORD){
     const pending=await database.query("select id from public.app_users where role='admin' and password_hash is null");

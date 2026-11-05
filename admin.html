@@ -6,6 +6,7 @@
 <link rel="stylesheet" href="styles.css?v=41">
 </head>
 <body>
+<!-- Acceso y recuperación de la cuenta administradora. -->
 <div id="adminLoginScreen" class="login-screen">
   <div class="login-card">
     <div class="login-logo">LOGO</div><h1>Administración</h1><p class="login-subtitle">Acceso exclusivo del administrador</p>
@@ -25,6 +26,7 @@
     <div id="adminLoginMsg" class="login-msg" aria-live="polite"></div>
   </div>
 </div>
+<!-- Encabezado institucional y navegación de Administración. -->
 <header class="topbar admin-topbar">
   <div class="logo">LOGO IZQ.</div>
   <div class="school"><h1 id="adminSchoolName">NOMBRE DE LA INSTITUCIÓN</h1><div>ADMINISTRACIÓN DEL SISTEMA DE ASESORÍAS</div></div>
@@ -36,6 +38,7 @@
 </nav>
 
 <main class="container admin-container">
+<!-- Inicio: indicadores generales del cuatrimestre seleccionado. -->
   <section class="card admin-dashboard" id="dashboard">
     <div class="toolbar admin-dashboard-toolbar">
       <div><div class="section-title">Panel administrativo</div><div class="muted">Resumen del cuatrimestre seleccionado.</div></div>
@@ -51,6 +54,7 @@
     </div>
   </section>
 
+<!-- Estadísticas: tablas y gráficas por materia, motivo, asesor, grupo y periodo. -->
   <section class="card" id="estadisticas">
     <div class="toolbar stats-toolbar"><div><div class="section-title">Estadísticas</div></div><div class="report-actions"><button class="secondary" id="printStatsBtn">Imprimir estadísticas</button><button class="primary" id="exportStatsExcelBtn">Exportar a Excel</button></div></div>
     <div class="muted section-note">La misma información estadística de v41 se presenta en un tablero visual, sin agregar ni eliminar indicadores.</div>
@@ -66,6 +70,7 @@
     </div>
   </section>
 
+<!-- Historial y reportes: filtros, tabla, exportación e impresión. -->
   <section class="card" id="reportes">
     <div class="toolbar report-toolbar">
       <div><div class="section-title">Historial y reportes</div><div class="muted">Filtre las asesorías y después imprima o exporte únicamente los registros encontrados.</div></div>
@@ -86,6 +91,7 @@
     <div class="history-scroll-hint">La tabla conserva desplazamiento vertical y horizontal para consultar todos los campos y registros.</div>
   </section>
 
+<!-- Catálogos administrativos: alumnos, asesores y listas de captura. -->
   <section class="card" id="catalogos">
     <div class="section-title">Catálogos</div>
     <div class="muted catalog-intro">Alumnos y asesores se consultan desde PostgreSQL. La edición central de los demás catálogos se incorporará gradualmente.</div>
@@ -97,19 +103,21 @@
       <section class="catalog-panel" id="cat-alumnos"><div class="catalog-head"><h3>Alumnos</h3><span id="catAlumnosCount"></span></div><input class="catalog-search" id="searchAlumnos" placeholder="Buscar matrícula o nombre..."><div class="table-wrap compact-table catalog-table-wrap"><table><thead><tr><th>Matrícula</th><th>Nombre</th><th>Sexo</th><th>Carrera</th><th>Grupo</th><th>Turno</th></tr></thead><tbody id="catalogAlumnos"></tbody></table></div></section>
       <section class="catalog-panel is-hidden" id="cat-asesores"><div class="catalog-head"><h3>Asesores</h3><span id="catAsesoresCount"></span></div><form class="catalog-add-row advisor-add-row visible" id="add-asesores" autocomplete="off" novalidate><label>Nombre completo<input id="newAdvisorName" name="fullName" placeholder="Escriba el nombre completo"></label><label>Usuario<input id="newAdvisorUser" name="username" placeholder="Escriba el usuario"></label><label>Contraseña obligatoria<input id="newAdvisorPassword" name="password" type="password" minlength="10" placeholder="Mínimo 10 caracteres" autocomplete="new-password"></label><button class="primary small-btn" id="saveAdvisorBtn" type="submit">Agregar asesor</button><div class="advisor-form-message" id="advisorFormMessage" role="status" aria-live="polite"></div></form><input class="catalog-search" id="searchAsesores" placeholder="Buscar usuario o nombre..."><div class="table-wrap compact-table catalog-table-wrap"><table><thead><tr><th>Usuario</th><th>Nombre</th><th>Contraseña</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="catalogAsesores"></tbody></table></div></section>
       <section class="catalog-panel is-hidden" id="cat-materias"><div class="catalog-head"><h3>Materias</h3><button class="secondary small-btn" data-add="materias">Agregar</button></div><div class="catalog-add-row" id="add-materias"><input placeholder="Nueva materia"><button class="primary small-btn">Guardar</button></div><div class="catalog-list" id="catalogMaterias"></div></section>
-      <section class="catalog-panel is-hidden" id="cat-carreras"><div class="catalog-head"><h3>Carreras</h3><button class="secondary small-btn" data-add="carreras">Agregar</button></div><div class="catalog-add-row" id="add-carreras"><input placeholder="Nueva carrera"><button class="primary small-btn">Guardar</button></div><div class="catalog-list" id="catalogCarreras"></div></section>
+      <section class="catalog-panel is-hidden" id="cat-carreras"><div class="catalog-head"><h3>Carreras</h3><button class="secondary small-btn" data-add="carreras">Agregar</button></div><form class="catalog-add-row career-add-row" id="add-carreras" autocomplete="off"><label>Clave o abreviatura<input id="newCareerCode" maxlength="30" placeholder="Ej. IGE"></label><label>Nombre completo<input id="newCareerName" maxlength="150" placeholder="Ej. Ingeniería en Gestión Empresarial"></label><button class="primary small-btn" id="saveCareerBtn" type="submit">Guardar</button><div class="advisor-form-message" id="careerFormMessage" role="status" aria-live="polite"></div></form><div class="catalog-list" id="catalogCarreras"></div></section>
       <section class="catalog-panel is-hidden" id="cat-grupos"><div class="catalog-head"><h3>Grupos</h3><button class="secondary small-btn" data-add="grupos">Agregar</button></div><form class="catalog-add-row group-add-row" id="add-grupos"><label>Carrera<select id="newGroupCareer"><option value="">Seleccione</option></select></label><label>Grupo<input id="newGroupName" placeholder="Ej. IAEV-PA-06"></label><button class="primary small-btn" id="saveGroupBtn" type="submit">Guardar</button><div class="advisor-form-message" id="groupFormMessage" role="status" aria-live="polite"></div></form><div class="catalog-list growing-catalog-list" id="catalogGrupos"></div></section>
       <section class="catalog-panel is-hidden" id="cat-motivos"><div class="catalog-head"><h3>Motivos</h3><button class="secondary small-btn" data-add="motivos">Agregar</button></div><div class="catalog-add-row" id="add-motivos"><input placeholder="Nuevo motivo"><button class="primary small-btn">Guardar</button></div><div class="catalog-list" id="catalogMotivos"></div></section>
       <section class="catalog-panel is-hidden" id="cat-cuatrimestres"><div class="catalog-head"><h3>Cuatrimestres</h3><button class="secondary small-btn" data-add="cuatrimestres">Agregar</button></div><form class="catalog-add-row period-add-row" id="add-cuatrimestres"><label>Nombre<input id="newPeriodName" placeholder="Ej. Enero-Abril 2027"></label><label>Fecha inicial<input id="newPeriodStart" type="date"></label><label>Fecha final<input id="newPeriodEnd" type="date"></label><button class="primary small-btn" id="savePeriodBtn" type="submit">Guardar</button><div class="advisor-form-message" id="periodFormMessage" role="status" aria-live="polite"></div></form><div class="catalog-list" id="catalogCuatrimestres"></div></section>
     </div>
   </section>
 
+<!-- Resumen de asesorías y horas acumuladas por alumno. -->
   <section class="card student-bottom-card" id="alumnos-resumen">
     <div class="section-title">Horas recibidas por alumno</div>
     <div class="muted section-note">Se muestran 10 alumnos a la vez; use el desplazamiento para consultar los demás.</div>
     <div class="table-wrap student-summary-wrap compact-table"><table><thead><tr><th>Matrícula</th><th>Alumno</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="byStudent"></tbody></table></div>
   </section>
 
+<!-- Configuración de contraseña y recuperación de acceso. -->
   <section class="card" id="seguridad">
     <div class="section-title">Seguridad de la cuenta administrativa</div>
     <div class="muted section-note">La contraseña es obligatoria. Configure también una clave de recuperación de al menos 10 caracteres y guárdela en un lugar seguro.</div>
