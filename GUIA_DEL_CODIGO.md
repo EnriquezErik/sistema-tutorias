@@ -12,6 +12,7 @@ El sistema se divide en tres capas: **interfaz web** (HTML y CSS), **lógica del
 | `app.js` | Catálogos, búsqueda de alumno, cronómetro, captura, guardado, historial, filtros, CSV e inicio/cierre de sesión. |
 | `admin.html` | Acceso/recuperación, Inicio, Estadísticas, Historial y reportes, Catálogos, resumen por alumno y seguridad. |
 | `admin.js` | Carga de datos, indicadores, tablas/gráficas, filtros, gestión de catálogos/asesores, exportación e impresión. |
+| `logo-bis-universities.png` | Logotipo institucional servido desde la raíz para Registro, Administración y reportes impresos. |
 | `styles.css` | Presentación de ambas pantallas, formularios, tablas, adaptación a pantalla e impresión. |
 | `server.js` | Servidor HTTP, API, autenticación/autorización, validaciones, conexión PostgreSQL y protecciones HTTP. |
 | `database/001_esquema_inicial_sistema_tutorias.sql` | Migración inicial: tablas, relaciones, índices, triggers, RLS y catálogos iniciales. |

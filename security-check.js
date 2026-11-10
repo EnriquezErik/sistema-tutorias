@@ -24,4 +24,8 @@ assert(styles.includes("body.locked{overflow:hidden"),"La pantalla de acceso deb
 assert(styles.includes("body.locked>:not(.login-screen)"),"El contenido privado debe ocultarse sin sesión");
 assert(indexHtml.includes('class="login-logo"><img'),"El acceso del asesor debe mostrar el logotipo");
 assert(adminHtml.includes('class="login-logo"><img'),"El acceso administrativo debe mostrar el logotipo");
+assert(indexHtml.includes('src="/logo-bis-universities.png"'),"El Registro debe usar la ruta pública estable del logotipo");
+assert(adminHtml.includes('src="/logo-bis-universities.png"'),"Administración debe usar la ruta pública estable del logotipo");
+assert(server.includes('"logo-bis-universities.png"'),"El servidor debe autorizar la entrega pública del logotipo");
+assert(server.includes('"logo-bis-universities.png"'),"El servidor debe publicar el logotipo desde la raíz");
 console.log("Controles esenciales de seguridad: OK");

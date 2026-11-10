@@ -4,6 +4,8 @@ La v42 mantiene el registro de asesorías, catálogos, estadísticas, filtros, i
 
 Para orientarse entre archivos y funciones, consulte [`GUIA_DEL_CODIGO.md`](GUIA_DEL_CODIGO.md). Abra la carpeta raíz o `sistema-tutorias.code-workspace` en Visual Studio Code.
 
+El archivo `logo-bis-universities.png` debe permanecer en la carpeta raíz junto a `index.html`, `admin.html` y `server.js`. La aplicación utiliza una ruta pública absoluta para mostrarlo en los accesos, encabezados e impresiones de ambas páginas.
+
 Para conocer la función de cada archivo y los grupos principales de funciones, consulte [`GUIA_DEL_CODIGO.md`](GUIA_DEL_CODIGO.md). Abra la carpeta raíz o `sistema-tutorias.code-workspace` en Visual Studio Code.
 
 ## Seguridad incorporada
