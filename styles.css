@@ -127,6 +127,5 @@
 #estadisticas .donut:after{content:"";position:absolute;width:58px;height:58px;background:#fff;border-radius:50%}
 #estadisticas .donut strong{position:relative;z-index:1;font-size:16px;color:#274c58}
 #estadisticas .donut-caption{font-size:9px;color:#687b82;text-align:center;margin-top:4px}
-.career-add-row{align-items:end;flex-wrap:wrap}.career-add-row label{flex:1 1 220px}.career-add-row .advisor-form-message{flex-basis:100%}
 @media(max-width:900px){#estadisticas .admin-stats-grid{grid-template-columns:1fr}}
 @media print{#estadisticas .stats-mini-chart{display:none!important}#estadisticas{background:#fff;border:0;padding:0}#estadisticas .stats-viz-panel{box-shadow:none;border:1px solid #bbb;border-radius:0}}

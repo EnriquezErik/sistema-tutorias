@@ -1,3 +1,4 @@
+// Comprobación estática: valida patrones de seguridad del código; no simula el uso del sistema.
 const fs=require("fs");
 const assert=require("assert");
 const server=fs.readFileSync("server.js","utf8");

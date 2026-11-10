@@ -257,7 +257,7 @@ async function apiAdminData(request, response) {
     database.query(`select g.id, g.name::text, g.career_id, g.active, c.code::text as career_code
                       from public.student_groups g left join public.careers c on c.id=g.career_id
                      order by c.code nulls last, g.name`),
-    database.query("select id,code::text as code,name,active from public.careers order by code"),
+    database.query("select id,code::text as name,active from public.careers order by code"),
     database.query("select id,name::text,active from public.subjects order by name"),
     database.query("select id,name::text,active from public.advisory_reasons order by name")
   ]);
@@ -272,16 +272,8 @@ const simpleCatalogs={carreras:{table:"careers",column:"code",label:"carrera"},m
 async function apiCreateSimpleCatalog(request,response,key){
   if(!requireAdmin(request,response))return;const cfg=simpleCatalogs[key];
   let body;try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false,message:"Solicitud inválida."});return}
-  if(key==='carreras'){
-    const code=String(body.code||"").trim().toUpperCase(),name=String(body.name||"").trim();
-    if(!code||!name){sendJson(response,400,{ok:false,message:"Capture la clave y el nombre completo de la carrera."});return}
-    if(code.length>30||name.length>150){sendJson(response,400,{ok:false,message:"La clave admite hasta 30 caracteres y el nombre hasta 150."});return}
-    try{const result=await database.query("insert into public.careers(code,name,active) values($1,$2,true) returning id,code::text as code,name,active",[code,name]);sendJson(response,201,{ok:true,item:result.rows[0]})}
-    catch(error){if(error.code==='23505'){const existing=await database.query("select active from public.careers where lower(code::text)=lower($1) limit 1",[code]);sendJson(response,409,{ok:false,message:existing.rows[0]?.active?`La carrera ${code} ya se encuentra registrada y activa.`:`La carrera ${code} ya existe, pero está inactiva. Utilice el botón Reactivar.`});return}if(error.code==='22001'||error.code==='23514'){sendJson(response,400,{ok:false,message:"La clave o el nombre no cumplen el formato permitido por la base de datos."});return}throw error}
-    return;
-  }
   const name=String(body.name||"").trim();if(!name){sendJson(response,400,{ok:false,message:`Capture la ${cfg.label}.`});return}
-  try{const sql=`insert into public.${cfg.table}(${cfg.column},active) values($1,true) returning id,${cfg.column}::text as name,active`;const result=await database.query(sql,[name]);sendJson(response,201,{ok:true,item:result.rows[0]})}
+  try{const sql=key==='carreras'?"insert into public.careers(code,name,active) values($1,$1,true) returning id,code::text as name,active":`insert into public.${cfg.table}(${cfg.column},active) values($1,true) returning id,${cfg.column}::text as name,active`;const result=await database.query(sql,[name]);sendJson(response,201,{ok:true,item:result.rows[0]})}
   catch(error){if(error.code==='23505'){sendJson(response,409,{ok:false,message:`Ya existe esa ${cfg.label}.`});return}throw error}
 }
 async function apiSetSimpleCatalogActive(request,response,key,id){
