@@ -111,9 +111,8 @@
 #estadisticas .stats-toolbar{background:#fff;border:1px solid #dce7eb;border-radius:10px;padding:10px 12px;box-shadow:0 3px 10px #174b5d0a}
 #estadisticas .section-title{font-size:20px;color:#173e4b}
 #estadisticas .section-note{margin:2px 2px 10px;color:#647780}
-#estadisticas .admin-stats-grid{grid-template-columns:repeat(3,minmax(240px,1fr));gap:10px;align-items:start}
-#estadisticas .stats-viz-panel{background:#fff;border:1px solid #dce7eb;border-radius:10px;padding:10px;box-shadow:0 3px 10px #174b5d0a;min-width:0;overflow:hidden}
-#estadisticas .stats-viz-wide{grid-column:span 2}
+#estadisticas .admin-stats-grid{display:block;column-count:3;column-gap:10px}
+#estadisticas .stats-viz-panel{display:inline-block;width:100%;margin:0 0 10px;background:#fff;border:1px solid #dce7eb;border-radius:10px;padding:10px;box-shadow:0 3px 10px #174b5d0a;min-width:0;overflow:hidden;break-inside:avoid;vertical-align:top}
 #estadisticas .stats-viz-panel .sub-title{margin:0 0 7px;font-size:13px;color:#284c58}
 #estadisticas .compact-table{max-height:250px;overflow:auto;border:1px solid #e1e9ec;border-radius:7px}
 #estadisticas .stats-viz-panel table{width:100%;background:#fff;font-size:11px}
@@ -121,6 +120,6 @@
 #estadisticas .stats-viz-panel td,#estadisticas .stats-viz-panel th{padding:6px 7px;line-height:1.25}
 #estadisticas .stats-viz-panel tbody tr:nth-child(even){background:#f8fafb}
 #estadisticas .stats-viz-panel td:nth-last-child(-n+2),#estadisticas .stats-viz-panel th:nth-last-child(-n+2){text-align:right;white-space:nowrap}
-@media(max-width:1100px){#estadisticas .admin-stats-grid{grid-template-columns:repeat(2,minmax(240px,1fr))}}
-@media(max-width:700px){#estadisticas .admin-stats-grid{grid-template-columns:1fr}#estadisticas .stats-viz-wide{grid-column:span 1}#estadisticas .stats-toolbar{align-items:flex-start}#estadisticas .report-actions{width:100%;flex-wrap:wrap}}
+@media(max-width:1100px){#estadisticas .admin-stats-grid{column-count:2}}
+@media(max-width:700px){#estadisticas .admin-stats-grid{column-count:1}#estadisticas .stats-toolbar{align-items:flex-start}#estadisticas .report-actions{width:100%;flex-wrap:wrap}}
 @media print{#estadisticas{background:#fff;border:0;padding:0}#estadisticas .stats-viz-panel{box-shadow:none;border:1px solid #bbb;border-radius:0}#estadisticas .compact-table{max-height:none;overflow:visible;border:0}}
