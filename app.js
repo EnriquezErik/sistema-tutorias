@@ -130,12 +130,12 @@ async function loadRemoteAdvisories(){
 
 function currentUser(){return secureUser}
 function showLogin(){
-  const s=$("#loginScreen"); if(s)s.style.display="flex";
+  const s=$("#loginScreen"); if(s){s.style.display="flex";s.setAttribute("aria-hidden","false")}
   document.body.classList.add("locked");
   $("#loginUser")?.focus();
 }
 function hideLogin(){
-  const s=$("#loginScreen"); if(s)s.style.display="none";
+  const s=$("#loginScreen"); if(s){s.style.display="none";s.setAttribute("aria-hidden","true")}
   document.body.classList.remove("locked");
 }
 async function doLogin(){

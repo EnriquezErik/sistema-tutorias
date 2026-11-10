@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Administración · Asesorías</title>
-<link rel="stylesheet" href="styles.css?v=41">
+<link rel="stylesheet" href="styles.css?v=1.7.0">
 </head>
-<body>
+<body class="locked">
 <!-- Acceso y recuperación de la cuenta administradora. -->
-<div id="adminLoginScreen" class="login-screen">
+<div id="adminLoginScreen" class="login-screen" role="dialog" aria-modal="true" aria-labelledby="adminLoginTitle">
   <div class="login-card">
-    <div class="login-logo">LOGO</div><h1>Administración</h1><p class="login-subtitle">Acceso exclusivo del administrador</p>
+    <div class="login-logo"><img src="assets/logo-bis-universities.png" alt="BIS Universities"></div><h1 id="adminLoginTitle">Administración</h1><p class="login-subtitle">Acceso exclusivo del administrador</p>
     <div id="adminLoginForm">
       <label>Usuario<input id="adminLoginUser" autocomplete="username" placeholder="Administrador"></label>
       <label>Contraseña<input id="adminLoginPassword" type="password" autocomplete="current-password" placeholder="Contraseña obligatoria"></label>
@@ -19,7 +19,7 @@
     <div id="adminRecoveryForm" hidden>
       <label>Usuario<input id="recoveryUser" placeholder="Administrador"></label>
       <label>Clave de recuperación<input id="recoveryCode" type="password" autocomplete="off"></label>
-      <label>Contraseña nueva<input id="recoveryNewPassword" type="password" minlength="8"></label>
+      <label>Contraseña nueva<input id="recoveryNewPassword" type="password" minlength="10" placeholder="Mínimo 10 caracteres"></label>
       <button id="recoverAccessBtn" class="primary login-btn" type="button">RESTABLECER CONTRASEÑA</button>
       <button id="backToLoginBtn" class="secondary login-btn" type="button">Volver al acceso</button>
     </div>
@@ -134,5 +134,5 @@
 
 <footer class="site-footer"><span id="adminFooterText">© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.</span><br><span id="adminVersion">Versión 1.7.0 · Administración</span></footer>
 <div id="adminPrintReport" class="print-only"></div>
-<script src="admin.js?v=41"></script>
+<script src="admin.js?v=1.7.0"></script>
 </body></html>

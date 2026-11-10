@@ -210,10 +210,11 @@ async function apiLogin(request, response) {
 }
 
 // ÁREA ADMINISTRATIVA: autoriza el rol administrador y atiende datos, catálogos y cuentas.
-function requireAdmin(request, response) {
+async function requireAdmin(request, response) {
   const session = readSession(request, "admin_session");
   if (!session) { sendJson(response, 401, { ok: false, code: "unauthorized" }); return null; }
   if (session.rol !== "admin") { sendJson(response, 403, { ok: false, code: "admin_required" }); return null; }
+  if (!await isActiveAdminSession(session)) { sendJson(response, 403, { ok: false, code: "inactive_account" }); return null; }
   return session;
 }
 
@@ -224,7 +225,7 @@ async function isActiveAdminSession(session){
 }
 
 async function apiAdminData(request, response) {
-  if (!requireAdmin(request, response)) return;
+  if (!await requireAdmin(request, response)) return;
   const session = readSession(request, "admin_session");
   const [advisories, students, users, bootstrap, periodsAdmin, groupsAdmin, careersAdmin, subjectsAdmin, reasonsAdmin] = await Promise.all([
     database.query(`
@@ -270,14 +271,14 @@ async function apiAdminData(request, response) {
 
 const simpleCatalogs={carreras:{table:"careers",column:"code",label:"carrera"},materias:{table:"subjects",column:"name",label:"materia"},motivos:{table:"advisory_reasons",column:"name",label:"motivo"}};
 async function apiCreateSimpleCatalog(request,response,key){
-  if(!requireAdmin(request,response))return;const cfg=simpleCatalogs[key];
+  if(!await requireAdmin(request,response))return;const cfg=simpleCatalogs[key];
   let body;try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false,message:"Solicitud inválida."});return}
   const name=String(body.name||"").trim();if(!name){sendJson(response,400,{ok:false,message:`Capture la ${cfg.label}.`});return}
   try{const sql=key==='carreras'?"insert into public.careers(code,name,active) values($1,$1,true) returning id,code::text as name,active":`insert into public.${cfg.table}(${cfg.column},active) values($1,true) returning id,${cfg.column}::text as name,active`;const result=await database.query(sql,[name]);sendJson(response,201,{ok:true,item:result.rows[0]})}
   catch(error){if(error.code==='23505'){sendJson(response,409,{ok:false,message:`Ya existe esa ${cfg.label}.`});return}throw error}
 }
 async function apiSetSimpleCatalogActive(request,response,key,id){
-  if(!requireAdmin(request,response))return;const cfg=simpleCatalogs[key];
+  if(!await requireAdmin(request,response))return;const cfg=simpleCatalogs[key];
   let body;try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false,message:"Solicitud inválida."});return}
   if(typeof body.active!=="boolean"){sendJson(response,400,{ok:false,message:"Indique el estado."});return}
   const result=await database.query(`update public.${cfg.table} set active=$1,updated_at=now() where id=$2::uuid returning id,${cfg.column}::text as name,active`,[body.active,id]);
@@ -285,7 +286,7 @@ async function apiSetSimpleCatalogActive(request,response,key,id){
 }
 
 async function apiCreateGroup(request,response){
-  if(!requireAdmin(request,response))return;
+  if(!await requireAdmin(request,response))return;
   let body;try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false,message:"Solicitud inválida."});return}
   const name=String(body.name||"").trim(),careerCode=String(body.careerCode||"").trim();
   if(!name||!careerCode){sendJson(response,400,{ok:false,message:"Capture el grupo y seleccione su carrera."});return}
@@ -298,7 +299,7 @@ async function apiCreateGroup(request,response){
 }
 
 async function apiSetGroupActive(request,response,groupId){
-  if(!requireAdmin(request,response))return;
+  if(!await requireAdmin(request,response))return;
   let body;try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false,message:"Solicitud inválida."});return}
   if(typeof body.active!=="boolean"){sendJson(response,400,{ok:false,message:"Indique el estado del grupo."});return}
   const result=await database.query("update public.student_groups set active=$1,updated_at=now() where id=$2::uuid returning id,name::text,career_id,active",[body.active,groupId]);
@@ -307,7 +308,7 @@ async function apiSetGroupActive(request,response,groupId){
 }
 
 async function apiCreatePeriod(request,response){
-  if(!requireAdmin(request,response))return;
+  if(!await requireAdmin(request,response))return;
   let body;try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false,message:"Solicitud inválida."});return}
   const name=String(body.name||"").trim(),startsOn=String(body.startsOn||""),endsOn=String(body.endsOn||"");
   if(!name||!/^\d{4}-\d{2}-\d{2}$/.test(startsOn)||!/^\d{4}-\d{2}-\d{2}$/.test(endsOn)){sendJson(response,400,{ok:false,message:"Capture el nombre, la fecha inicial y la fecha final."});return}
@@ -321,7 +322,7 @@ async function apiCreatePeriod(request,response){
 }
 
 async function apiSetPeriodActive(request,response,periodId){
-  if(!requireAdmin(request,response))return;
+  if(!await requireAdmin(request,response))return;
   let body;try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false,message:"Solicitud inválida."});return}
   if(typeof body.active!=="boolean"){sendJson(response,400,{ok:false,message:"Indique el estado del cuatrimestre."});return}
   if(body.active){
@@ -337,7 +338,7 @@ async function apiSetPeriodActive(request,response,periodId){
 
 // CREDENCIALES ADMINISTRATIVAS: cambio de contraseña y recuperación de acceso.
 async function apiAccountSecurity(request, response) {
-  const session = requireAdmin(request, response); if (!session) return;
+  const session = await requireAdmin(request, response); if (!session) return;
   let body; try { body = await readJsonBody(request); } catch (error) { sendJson(response, 400, { ok:false, code:error.message }); return; }
   const currentPassword=String(body.currentPassword||""), newPassword=String(body.newPassword||""), recoveryCode=String(body.recoveryCode||"");
   if (newPassword.length < 10) { sendJson(response,400,{ok:false,message:"La contraseña debe tener al menos 10 caracteres."}); return; }
@@ -355,16 +356,19 @@ async function apiRecoverAccess(request,response){
   let body; try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false});return}
   const username=String(body.username||"").trim(), recoveryCode=String(body.recoveryCode||""), newPassword=String(body.newPassword||"");
   if(!username||recoveryCode.length<10||newPassword.length<10){sendJson(response,400,{ok:false,message:"Complete los datos; la contraseña nueva requiere 10 caracteres."});return}
+  const rateKey=loginRateKey(request,username,"admin-recovery");
+  if(loginBlocked(rateKey)){sendJson(response,429,{ok:false,code:"too_many_attempts",message:"Demasiados intentos. Espere 15 minutos antes de volver a intentar."});return}
   const result=await database.query("select id,recovery_code_hash from public.app_users where active=true and role='admin' and lower(username::text)=lower($1) limit 1",[username]);
   const user=result.rows[0];
-  if(!user||!user.recovery_code_hash||!await bcrypt.compare(recoveryCode,user.recovery_code_hash)){sendJson(response,401,{ok:false,message:"Usuario o clave de recuperación incorrectos."});return}
+  if(!user||!user.recovery_code_hash||!await bcrypt.compare(recoveryCode,user.recovery_code_hash)){recordLoginFailure(rateKey);await audit(request,{username},"RECOVERY_FAILED","account",null,{});sendJson(response,401,{ok:false,message:"Usuario o clave de recuperación incorrectos."});return}
   const passwordHash=await bcrypt.hash(newPassword,12);
   await database.query("update public.app_users set password_hash=$1,recovery_code_hash=null where id=$2",[passwordHash,user.id]);
+  loginAttempts.delete(rateKey);await audit(request,{id:user.id,username},"RECOVERY_SUCCESS","account",user.id,{});
   sendJson(response,200,{ok:true,message:"Contraseña restablecida. Ingrese y configure una nueva clave de recuperación."});
 }
 
 async function apiCreateUser(request,response){
-  if(!requireAdmin(request,response))return;
+  if(!await requireAdmin(request,response))return;
   let body;try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false});return}
   const username=String(body.username||"").trim(),fullName=String(body.fullName||"").trim(),password=String(body.password||"");
   if(!username||!fullName){sendJson(response,400,{ok:false,message:"Capture nombre y usuario."});return}
@@ -377,7 +381,7 @@ async function apiCreateUser(request,response){
 }
 
 async function apiSetUserActive(request,response,userId){
-  if(!requireAdmin(request,response))return;
+  if(!await requireAdmin(request,response))return;
   let body;try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false,message:"Solicitud inválida."});return}
   if(typeof body.active!=="boolean"){sendJson(response,400,{ok:false,message:"Indique el estado de la cuenta."});return}
   const result=await database.query("update public.app_users set active=$1 where id=$2::uuid and role='advisor' returning username::text as usuario, active as activo",[body.active,userId]);

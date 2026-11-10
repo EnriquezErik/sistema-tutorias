@@ -1,6 +1,6 @@
-# Sistema de Asesorías Académicas · versión declarada: v41
+# Sistema de Asesorías Académicas · versión estable: v42
 
-La v41 parte de la v40 estable y mantiene el registro de asesorías, catálogos, dashboard, estadísticas, filtros, impresión y exportación. Su objetivo es fortalecer la protección de información personal sin rediseñar las páginas.
+La v42 mantiene el registro de asesorías, catálogos, estadísticas, filtros, impresión y exportación. Incorpora protección visual y funcional de las pantallas de acceso, validación de sesiones y presentación institucional.
 
 Para orientarse entre archivos y funciones, consulte [`GUIA_DEL_CODIGO.md`](GUIA_DEL_CODIGO.md). Abra la carpeta raíz o `sistema-tutorias.code-workspace` en Visual Studio Code.
 
@@ -11,6 +11,8 @@ Para conocer la función de cada archivo y los grupos principales de funciones, 
 - Contraseñas obligatorias de al menos 10 caracteres.
 - Sesiones firmadas mediante cookie `HttpOnly`, `Secure` y `SameSite=Strict`, con duración predeterminada de 12 horas.
 - Bloqueo temporal después de cinco intentos fallidos de acceso.
+- Bloqueo temporal de intentos fallidos de recuperación administrativa.
+- Ocultamiento y limpieza de la información administrativa cuando no existe una sesión válida.
 - Validación del origen de las operaciones de escritura.
 - Encabezados CSP, HSTS, anti-iframe, `nosniff`, política de referencia y permisos restringidos.
 - Sin acceso alternativo local cuando PostgreSQL no está disponible.

@@ -1,6 +1,6 @@
-# v41 · Fortalecimiento de seguridad
+# v42 · Seguridad y despliegue
 
-Esta versión conserva la estructura y las funciones de la v40. La v40 permanece como respaldo estable.
+Esta versión conserva la estructura funcional estable y añade protección de las pantallas de acceso. La v40 permanece como respaldo histórico.
 
 ## Antes de desplegar
 
@@ -17,6 +17,9 @@ Esta versión conserva la estructura y las funciones de la v40. La v40 permanece
 - Hash bcrypt con costo 12; nunca se guarda la contraseña original.
 - Sesiones firmadas, `HttpOnly`, `Secure`, `SameSite=Strict` y duración predeterminada de 12 horas.
 - Bloqueo por 15 minutos después de cinco intentos fallidos de acceso.
+- El mismo bloqueo protege la recuperación de la cuenta administrativa.
+- El contenido de Registro y Administración permanece oculto mientras no exista una sesión válida.
+- Al cerrar o perder la sesión administrativa se limpian de la página las tablas previamente cargadas.
 - Validación del origen en operaciones que modifican información.
 - Encabezados CSP, HSTS, anti-iframe, `nosniff`, privacidad de referencia y restricción de permisos.
 - Eliminación del acceso local alternativo y de copias permanentes de alumnos, asesorías y sesiones en `localStorage`.
@@ -27,7 +30,7 @@ Esta versión conserva la estructura y las funciones de la v40. La v40 permanece
 
 ## Transición de cuentas
 
-La v41 no permite iniciar sesión con cuentas cuyo `password_hash` esté vacío. Antes de entregarla:
+La v42 no permite iniciar sesión con cuentas cuyo `password_hash` esté vacío. Antes de entregarla:
 
 - Configure la contraseña administrativa mediante `ADMIN_INITIAL_PASSWORD`.
 - Desde el catálogo de asesores cree las cuentas definitivas con una contraseña temporal fuerte.
