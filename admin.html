@@ -47,7 +47,7 @@
     <div class="stats compact-stats six-stats">
       <div class="stat"><span>Alumnos</span><strong id="students">0</strong></div>
       <div class="stat"><span>Asesorías</span><strong id="sessions">0</strong></div>
-      <div class="stat"><span>Horas acumuladas</span><strong id="hours">0.00</strong></div>
+      <div class="stat"><span>Tiempo acumulado</span><strong id="hours">0 min</strong></div>
       <div class="stat"><span>Asesores</span><strong id="advisors">0</strong></div>
       <div class="stat"><span>Materias con asesorías</span><strong id="subjectsUsed">0</strong></div>
       <div class="stat"><span>Canalizaciones a psicopedagogía</span><strong id="referrals">0</strong></div>
@@ -59,14 +59,14 @@
     <div class="toolbar stats-toolbar"><div><div class="section-title">Estadísticas</div></div><div class="report-actions"><button class="secondary" id="printStatsBtn">Imprimir estadísticas</button><button class="primary" id="exportStatsExcelBtn">Exportar a Excel</button></div></div>
     <div class="muted section-note">Resumen estadístico del cuatrimestre seleccionado. Las tablas conservan todos los indicadores y están disponibles para impresión y exportación a Excel.</div>
     <div class="admin-stats-grid">
-      <div class="stat-panel stats-viz-panel"><h3 class="sub-title">Horas por materia</h3><div class="table-wrap compact-table"><table><thead><tr><th>Materia</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="bySubject"></tbody></table></div></div>
-      <div class="stat-panel stats-viz-panel"><h3 class="sub-title">Asesorías por motivo</h3><div class="table-wrap compact-table"><table><thead><tr><th>Motivo</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="byReason"></tbody></table></div></div>
-      <div class="stat-panel stats-viz-panel"><h3 class="sub-title">Asesorías por asesor</h3><div class="table-wrap compact-table"><table><thead><tr><th>Asesor</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="byAdvisor"></tbody></table></div></div>
-      <div class="stat-panel stats-viz-panel stats-viz-wide"><h3 class="sub-title">Actividad por carrera / grupo</h3><div class="table-wrap compact-table wide-compact"><table><thead><tr><th>Carrera</th><th>Grupo</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="byGroup"></tbody></table></div></div>
-      <div class="stat-panel stats-viz-panel"><h3 class="sub-title">Canalizaciones a psicopedagogía</h3><div class="table-wrap compact-table"><table><thead><tr><th>Resultado</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="byReferral"></tbody></table></div></div>
-      <div class="stat-panel stats-viz-panel"><h3 class="sub-title">Asesorías por sexo</h3><div class="table-wrap compact-table"><table><thead><tr><th>Sexo</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="bySex"></tbody></table></div></div>
-      <div class="stat-panel stats-viz-panel"><h3 class="sub-title">Canalizaciones por sexo</h3><div class="table-wrap compact-table"><table><thead><tr><th>Sexo</th><th>Canalizaciones</th><th>Horas</th></tr></thead><tbody id="byReferralSex"></tbody></table></div></div>
-      <div class="stat-panel stats-viz-panel stats-viz-wide"><h3 class="sub-title">Actividad por cuatrimestre</h3><div class="table-wrap compact-table wide-compact"><table><thead><tr><th>Cuatrimestre</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="byPeriod"></tbody></table></div></div>
+      <div class="stat-panel stats-viz-panel"><h3 class="sub-title">Tiempo por materia</h3><div class="table-wrap compact-table"><table><thead><tr><th>Materia</th><th>Asesorías</th><th>Duración</th></tr></thead><tbody id="bySubject"></tbody></table></div></div>
+      <div class="stat-panel stats-viz-panel"><h3 class="sub-title">Asesorías por motivo</h3><div class="table-wrap compact-table"><table><thead><tr><th>Motivo</th><th>Asesorías</th><th>Duración</th></tr></thead><tbody id="byReason"></tbody></table></div></div>
+      <div class="stat-panel stats-viz-panel"><h3 class="sub-title">Asesorías por asesor</h3><div class="table-wrap compact-table"><table><thead><tr><th>Asesor</th><th>Asesorías</th><th>Duración</th></tr></thead><tbody id="byAdvisor"></tbody></table></div></div>
+      <div class="stat-panel stats-viz-panel stats-viz-wide"><h3 class="sub-title">Actividad por carrera / grupo</h3><div class="table-wrap compact-table wide-compact"><table><thead><tr><th>Carrera</th><th>Grupo</th><th>Asesorías</th><th>Duración</th></tr></thead><tbody id="byGroup"></tbody></table></div></div>
+      <div class="stat-panel stats-viz-panel"><h3 class="sub-title">Canalizaciones a psicopedagogía</h3><div class="table-wrap compact-table"><table><thead><tr><th>Resultado</th><th>Asesorías</th><th>Duración</th></tr></thead><tbody id="byReferral"></tbody></table></div></div>
+      <div class="stat-panel stats-viz-panel"><h3 class="sub-title">Asesorías por sexo</h3><div class="table-wrap compact-table"><table><thead><tr><th>Sexo</th><th>Asesorías</th><th>Duración</th></tr></thead><tbody id="bySex"></tbody></table></div></div>
+      <div class="stat-panel stats-viz-panel"><h3 class="sub-title">Canalizaciones por sexo</h3><div class="table-wrap compact-table"><table><thead><tr><th>Sexo</th><th>Canalizaciones</th><th>Duración</th></tr></thead><tbody id="byReferralSex"></tbody></table></div></div>
+      <div class="stat-panel stats-viz-panel stats-viz-wide"><h3 class="sub-title">Actividad por cuatrimestre</h3><div class="table-wrap compact-table wide-compact"><table><thead><tr><th>Cuatrimestre</th><th>Asesorías</th><th>Duración</th></tr></thead><tbody id="byPeriod"></tbody></table></div></div>
     </div>
   </section>
 
@@ -86,7 +86,7 @@
       <label>Motivo<select id="adminReasonFilter"><option value="all">Todos</option></select></label>
       <label>Buscar alumno / matrícula<input id="adminStudentSearch" placeholder="Escriba para buscar..."></label>
     </div>
-    <div class="report-result"><span id="reportCount">0 registros</span><span id="reportHours">0.00 horas</span></div>
+    <div class="report-result"><span id="reportCount">0 registros</span><span id="reportHours">Duración total: 0 min</span></div>
     <div class="table-wrap admin-history-wrap"><table id="adminHistory"><thead><tr><th>Fecha</th><th>Inicio</th><th>Fin</th><th>Matrícula</th><th>Alumno</th><th>Sexo</th><th>Carrera</th><th>Grupo</th><th>Materia</th><th>Motivo</th><th>Comentarios</th><th>Asesor</th><th>Duración</th><th>Psico.</th><th>Cuatrimestre</th></tr></thead><tbody></tbody></table></div>
     <div class="history-scroll-hint">La tabla conserva desplazamiento vertical y horizontal para consultar todos los campos y registros.</div>
   </section>
@@ -110,11 +110,11 @@
     </div>
   </section>
 
-<!-- Resumen de asesorías y horas acumuladas por alumno. -->
+<!-- Resumen de asesorías y tiempo acumulado por alumno. -->
   <section class="card student-bottom-card" id="alumnos-resumen">
-    <div class="section-title">Horas recibidas por alumno</div>
+    <div class="section-title">Tiempo recibido por alumno</div>
     <div class="muted section-note">Se muestran 10 alumnos a la vez; use el desplazamiento para consultar los demás.</div>
-    <div class="table-wrap student-summary-wrap compact-table"><table><thead><tr><th>Matrícula</th><th>Alumno</th><th>Asesorías</th><th>Horas</th></tr></thead><tbody id="byStudent"></tbody></table></div>
+    <div class="table-wrap student-summary-wrap compact-table"><table><thead><tr><th>Matrícula</th><th>Alumno</th><th>Asesorías</th><th>Duración</th></tr></thead><tbody id="byStudent"></tbody></table></div>
   </section>
 
 <!-- Configuración de contraseña y recuperación de acceso. -->
