@@ -291,3 +291,38 @@ input,select,textarea,button{min-width:0;max-width:100%}
   .print-statistics-document .print-stat-grid th:nth-last-child(-n+2),.print-statistics-document .print-stat-grid td:nth-last-child(-n+2){text-align:right;white-space:nowrap!important}
   .print-document-footer{display:flex;justify-content:space-between;gap:12px;margin-top:10px;padding-top:6px;border-top:1px solid #aebfc5;color:#6e7d83;font-size:7px}
 }
+
+/* Navegación administrativa persistente durante el desplazamiento. */
+.admin-nav{
+  position:sticky;
+  top:0;
+  z-index:50;
+  max-width:none;
+  margin:0;
+  padding:8px max(18px,calc((100vw - 1500px)/2 + 18px));
+  background:rgba(243,245,247,.97);
+  border-bottom:1px solid #d9e1e5;
+  box-shadow:0 4px 12px #1d3d4a14;
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+.admin-nav a,.admin-nav button{flex:0 0 auto}
+.admin-nav a:focus-visible,.admin-nav button:focus-visible{outline:3px solid #8fc7e6;outline-offset:2px}
+
+@media(max-width:800px){
+  .admin-nav{
+    display:flex;
+    flex-wrap:nowrap;
+    gap:6px;
+    width:100%;
+    padding:8px 10px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    overscroll-behavior-inline:contain;
+    scrollbar-width:thin;
+    -webkit-overflow-scrolling:touch;
+  }
+  .admin-nav a,.admin-nav button{width:auto;min-width:max-content;white-space:nowrap}
+}
+
+@media print{.admin-nav{display:none!important}}
