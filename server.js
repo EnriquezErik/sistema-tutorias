@@ -57,7 +57,7 @@ const MIME_TYPES = {
   ".svg": "image/svg+xml",
   ".ico": "image/x-icon"
 };
-const PUBLIC_FILES = new Set(["index.html","admin.html","styles.css","app.js","admin.js","favicon.ico","logo-bis-universities.png"]);
+const PUBLIC_FILES = new Set(["index.html","admin.html","styles.css","app.js","admin.js","exceljs.min.js","favicon.ico","logo-bis-universities.png"]);
 
 // ARCHIVOS PÚBLICOS Y RESPUESTAS: resuelve rutas permitidas y construye respuestas HTTP/JSON.
 function resolveRequestPath(requestUrl) {

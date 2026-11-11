@@ -12,7 +12,7 @@ function adminUsers(){return centralAdminData?.users||[]}
 function allAdvisors(){return adminUsers().filter(user=>user.rol!=='admin'&&user.role!=='admin')}
 function registeredAdvisors(){return adminUsers().filter(user=>user.rol!=='admin'&&user.role!=='admin'&&user.activo!==false)}
 async function saveAdvisor(event){event?.preventDefault();const form=admin$('#add-asesores'),nameInput=admin$('#newAdvisorName'),userInput=admin$('#newAdvisorUser'),passwordInput=admin$('#newAdvisorPassword'),nombre=String(nameInput?.value||'').trim(),usuario=String(userInput?.value||'').trim(),password=String(passwordInput?.value||''),message=admin$('#advisorFormMessage');if(message){message.textContent='';message.className='advisor-form-message'}if(!nombre||!usuario||password.length<10){const missing=password.length<10?'una contraseña de al menos 10 caracteres':!nombre?'el nombre completo':'el usuario';if(message){message.textContent=`Falta capturar ${missing}.`;message.classList.add('error')}alert(`Falta capturar ${missing}.`);return}const button=admin$('#saveAdvisorBtn');if(button){button.disabled=true;button.textContent='Guardando...'}try{const response=await fetch('/api/admin/users',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({fullName:nombre,username:usuario,password})});const payload=await response.json();if(!response.ok){if(message){message.textContent=payload.message||'No fue posible agregar al asesor.';message.classList.add('error')}return}await loadAdminData();form?.reset();if(message){message.textContent=`Asesor ${nombre} agregado correctamente con el usuario ${usuario}.`;message.classList.add('success')}alert(`Asesor ${nombre} agregado correctamente. Ya puede iniciar sesión con el usuario ${usuario}.`)}catch(error){if(message){message.textContent='No fue posible comunicarse con el servidor.';message.classList.add('error')}}finally{if(button){button.disabled=false;button.textContent='Agregar asesor'}}}
-function schoolConfig(){const cfg=adminRead(ADMIN_KEYS.school,{schoolName:'NOMBRE DE LA INSTITUCIÓN',footer:'© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.',version:'1.7.11'});cfg.version='1.7.11';return cfg}
+function schoolConfig(){const cfg=adminRead(ADMIN_KEYS.school,{schoolName:'NOMBRE DE LA INSTITUCIÓN',footer:'© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.',version:'1.7.12'});cfg.version='1.7.12';return cfg}
 function catalogs(){const c=adminRead(ADMIN_KEYS.catalogs,defaultCatalogs);return {...defaultCatalogs,...c}}
 function periods(){if(centralAdminData?.periods?.length)return centralAdminData.periods.map(period=>period.name);const p=adminRead(ADMIN_KEYS.periods,[ADMIN_DEFAULT_PERIOD]);return Array.from(new Set(p.filter(Boolean)))}
 function activePeriodName(){return centralAdminData?.periods?.find(period=>period.active!==false)?.name||periods()[0]||ADMIN_DEFAULT_PERIOD}
@@ -55,56 +55,35 @@ async function toggleGroupStatus(button){const active=button.dataset.active==='t
 // ACTUALIZACIÓN Y SALIDA DE INFORMACIÓN: refresca la interfaz y genera archivos/imprimibles.
 function renderAll(){renderDashboard();renderStatistics();renderStudentSummary();renderCatalogs();renderAdminReport()}
 function spreadsheetSafe(v){const text=String(v??'');return /^[=+\-@]/.test(text)?`'${text}`:text}
-function xmlSpreadsheetEscape(value){return spreadsheetSafe(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;')}
-function xlsxColumnName(index){let name='';for(let n=index+1;n>0;n=Math.floor((n-1)/26))name=String.fromCharCode(65+(n-1)%26)+name;return name}
-function xlsxSheetXml(rows){
-  const safeRows=rows.length?rows:[['Sin registros']];
-  const width=Math.max(1,...safeRows.map(row=>row.length));
-  const body=safeRows.map((row,rowIndex)=>`<row r="${rowIndex+1}">${row.map((value,columnIndex)=>`<c r="${xlsxColumnName(columnIndex)}${rowIndex+1}" t="inlineStr"${rowIndex===0?' s="1"':''}><is><t xml:space="preserve">${xmlSpreadsheetEscape(value)}</t></is></c>`).join('')}</row>`).join('');
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${xlsxColumnName(width-1)}${safeRows.length}"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><sheetData>${body}</sheetData><autoFilter ref="A1:${xlsxColumnName(width-1)}${safeRows.length}"/></worksheet>`;
-}
-function crc32(bytes){let crc=0xffffffff;for(const byte of bytes){crc^=byte;for(let i=0;i<8;i++)crc=(crc>>>1)^((crc&1)?0xedb88320:0)}return (crc^0xffffffff)>>>0}
-function zipUint32(view,offset,value){view.setUint32(offset,value>>>0,true)}
-function zipUint16(view,offset,value){view.setUint16(offset,value,true)}
-function buildStoredZip(files){
-  const encoder=new TextEncoder(),locals=[],centrals=[];let localOffset=0;
-  files.forEach(file=>{
-    const name=encoder.encode(file.name),data=typeof file.data==='string'?encoder.encode(file.data):file.data,crc=crc32(data);
-    const local=new Uint8Array(30+name.length+data.length),localView=new DataView(local.buffer);
-    zipUint32(localView,0,0x04034b50);zipUint16(localView,4,20);zipUint16(localView,6,0x0800);zipUint16(localView,8,0);zipUint16(localView,10,0);zipUint16(localView,12,0);zipUint32(localView,14,crc);zipUint32(localView,18,data.length);zipUint32(localView,22,data.length);zipUint16(localView,26,name.length);zipUint16(localView,28,0);local.set(name,30);local.set(data,30+name.length);locals.push(local);
-    const central=new Uint8Array(46+name.length),centralView=new DataView(central.buffer);
-    zipUint32(centralView,0,0x02014b50);zipUint16(centralView,4,20);zipUint16(centralView,6,20);zipUint16(centralView,8,0x0800);zipUint16(centralView,10,0);zipUint16(centralView,12,0);zipUint16(centralView,14,0);zipUint32(centralView,16,crc);zipUint32(centralView,20,data.length);zipUint32(centralView,24,data.length);zipUint16(centralView,28,name.length);zipUint16(centralView,30,0);zipUint16(centralView,32,0);zipUint16(centralView,34,0);zipUint16(centralView,36,0);zipUint32(centralView,38,0);zipUint32(centralView,42,localOffset);central.set(name,46);centrals.push(central);localOffset+=local.length;
-  });
-  const centralSize=centrals.reduce((total,item)=>total+item.length,0),end=new Uint8Array(22),endView=new DataView(end.buffer);
-  zipUint32(endView,0,0x06054b50);zipUint16(endView,4,0);zipUint16(endView,6,0);zipUint16(endView,8,files.length);zipUint16(endView,10,files.length);zipUint32(endView,12,centralSize);zipUint32(endView,16,localOffset);zipUint16(endView,20,0);
-  return new Blob([...locals,...centrals,end],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-}
-function createXlsxBlob(sheets){
-  const normalized=sheets.map(([name,rows],index)=>({name:String(name).replace(/[\\\/?*\[\]:]/g,' ').slice(0,31)||`Hoja ${index+1}`,rows}));
-  const sheetEntries=normalized.map((sheet,index)=>({name:`xl/worksheets/sheet${index+1}.xml`,data:xlsxSheetXml(sheet.rows)}));
-  const contentTypes=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${normalized.map((_,index)=>`<Override PartName="/xl/worksheets/sheet${index+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`;
-  const workbook=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${normalized.map((sheet,index)=>`<sheet name="${xmlSpreadsheetEscape(sheet.name)}" sheetId="${index+1}" r:id="rId${index+1}"/>`).join('')}</sheets></workbook>`;
-  const workbookRels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${normalized.map((_,index)=>`<Relationship Id="rId${index+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${index+1}.xml"/>`).join('')}<Relationship Id="rId${normalized.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
-  const styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/><color rgb="FFFFFFFF"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F4E78"/><bgColor indexed="64"/></patternFill></fill><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
-  return buildStoredZip([
-    {name:'[Content_Types].xml',data:contentTypes},
-    {name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
-    {name:'xl/workbook.xml',data:workbook},{name:'xl/_rels/workbook.xml.rels',data:workbookRels},{name:'xl/styles.xml',data:styles},...sheetEntries
-  ]);
-}
 function downloadAdminFile(blob,fileName){
   const url=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=url;link.download=fileName;link.rel='noopener';link.style.display='none';document.body.appendChild(link);link.click();
   setTimeout(()=>{link.remove();URL.revokeObjectURL(url)},10000);
 }
-function exportExcel(){
+async function createStandardXlsxBlob(sheets){
+  if(typeof ExcelJS==='undefined')throw new Error('No fue posible cargar el generador de Excel. Actualice la página e inténtelo nuevamente.');
+  const workbook=new ExcelJS.Workbook();
+  workbook.creator='Sistema de Tutorías';workbook.created=new Date();
+  sheets.forEach(([name,rows],index)=>{
+    const safeRows=(rows.length?rows:[['Sin registros']]).map(row=>row.map(spreadsheetSafe));
+    const sheetName=String(name).replace(/[\\\/?*\[\]:]/g,' ').slice(0,31)||`Hoja ${index+1}`;
+    const worksheet=workbook.addWorksheet(sheetName,{views:[{state:'frozen',ySplit:1}]});
+    worksheet.addRows(safeRows);
+    worksheet.getRow(1).font={bold:true,color:{argb:'FFFFFFFF'}};
+    worksheet.getRow(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1F4E78'}};
+    worksheet.columns.forEach(column=>{let width=10;column.eachCell({includeEmpty:true},cell=>{width=Math.max(width,Math.min(45,String(cell.value??'').length+2))});column.width=width});
+  });
+  const bytes=await workbook.xlsx.writeBuffer();
+  return new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+async function exportExcel(){
   const rows=getAdminFiltered(),head=['Fecha','Inicio','Fin','Matrícula','Alumno','Sexo','Carrera','Grupo','Materia','Motivo','Comentarios','Asesor','Duración','Psicopedagogía','Cuatrimestre'];
   const data=[head,...rows.map(x=>[x.fecha,x.inicio,x.fin,x.matricula,x.nombre,x.sexo,x.carrera,x.grupo,x.materia,x.motivo,x.comentarios,x.asesor,fmtAdmin(x.duracionMinutos),x.psico,x.periodo])];
-  downloadAdminFile(createXlsxBlob([['Historial de asesorías',data]]),'reporte_asesorias.xlsx');
+  downloadAdminFile(await createStandardXlsxBlob([['Historial de asesorías',data]]),'reporte_asesorias.xlsx');
 }
 
 
-function exportStatsExcel(){
+async function exportStatsExcel(){
   renderStatistics();
   const period=selectedPeriod();
   const tableData=(tbodyId,headers)=>{
@@ -123,7 +102,7 @@ function exportStatsExcel(){
     ['Por cuatrimestre',tableData('byPeriod',['Cuatrimestre','Asesorías','Duración'])]
   ];
   const safePeriod=String(period).replace(/[^a-z0-9áéíóúñ_-]+/gi,'_');
-  downloadAdminFile(createXlsxBlob(sheets),`estadisticas_asesorias_${safePeriod}.xlsx`);
+  downloadAdminFile(await createStandardXlsxBlob(sheets),`estadisticas_asesorias_${safePeriod}.xlsx`);
 }
 
 function printStatistics(){renderStatistics();const cfg=schoolConfig(),period=selectedPeriod(),panels=Array.from(document.querySelectorAll('#estadisticas .stat-panel')).map(panel=>panel.outerHTML).join('');admin$('#adminPrintReport').innerHTML=`<div class="print-header"><div class="print-logo print-logo-left"><img src="/logo-bis-universities.png" alt="BIS Universities"></div><div class="print-school"><h1>${escapeHTML(cfg.schoolName)}</h1><div>ESTADÍSTICAS DE ASESORÍAS · ${escapeHTML(period)}</div></div><div class="print-logo">LOGO DER.</div></div><div class="print-stat-grid">${panels}</div>`;window.print()}
