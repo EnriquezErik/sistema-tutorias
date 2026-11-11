@@ -6,7 +6,7 @@ La Administración utiliza navegación por vistas: Inicio y Estadísticas perman
 
 En dispositivos móviles, el encabezado administrativo distribuye el logotipo, el nombre institucional y las acciones de sesión en filas independientes para evitar superposiciones.
 
-La versión 1.7.14 conserva la estructura y todas las correcciones anteriores. En Administración, las exportaciones de estadísticas e historial se generan mediante una biblioteca XLSX estándar incluida localmente, compatible con Excel de escritorio y Office móvil. La impresión de Estadísticas incorpora un resumen ejecutivo profesional y la barra de navegación permanece accesible durante el desplazamiento; en móviles funciona como una fila horizontal desplazable. La página de Registro de Asesorías no fue modificada. Ninguno de estos cambios elimina registros existentes.
+La versión 1.7.15 conserva la estructura y todas las correcciones anteriores. En Administración, las exportaciones de estadísticas e historial se generan mediante una biblioteca XLSX estándar incluida localmente, compatible con Excel de escritorio y Office móvil. La impresión de Estadísticas incorpora un resumen ejecutivo profesional y la barra de navegación permanece accesible durante el desplazamiento; en móviles funciona como una fila horizontal desplazable. La auditoría integral añadió validaciones preventivas de sesión, límites de solicitud, vigencia del cronómetro y selección del cuatrimestre actual. Ninguno de estos cambios elimina registros existentes.
 
 Para orientarse entre archivos y funciones, consulte [`GUIA_DEL_CODIGO.md`](GUIA_DEL_CODIGO.md). Abra la carpeta raíz o `sistema-tutorias.code-workspace` en Visual Studio Code.
 

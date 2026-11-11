@@ -168,8 +168,9 @@ function readJsonBody(request, limit = 16384) {
     let body = "",settled=false;
     request.setEncoding("utf8");
     request.on("data", chunk => {
+      if (settled) return;
       body += chunk;
-      if(!settled&&Buffer.byteLength(body)>limit){settled=true;reject(new Error("payload_too_large"));}
+      if(Buffer.byteLength(body)>limit){settled=true;body="";reject(new Error("payload_too_large"));}
     });
     request.on("end", () => {
       if(settled)return;settled=true;try { resolve(body ? JSON.parse(body) : {}); }
@@ -288,7 +289,7 @@ async function apiAdminData(request, response) {
                            (recovery_code_hash is not null) as "recuperacionConfigurada"
                       from public.app_users order by role, full_name`),
     getBootstrap(),
-    database.query("select id, name, starts_on, ends_on, active from public.periods order by starts_on desc"),
+    database.query("select id, name, starts_on, ends_on, active from public.periods order by active desc, (current_date between starts_on and ends_on) desc, starts_on desc"),
     database.query(`select g.id, g.name::text, g.career_id, g.active, c.code::text as career_code
                       from public.student_groups g left join public.careers c on c.id=g.career_id
                      order by c.code nulls last, g.name`),
@@ -537,7 +538,9 @@ function advisoryRow(row) {
 }
 
 async function apiFindStudent(request, response, enrollment) {
-  if (!requireSession(request, response)) return;
+  const session=requireSession(request,response);
+  if(!session)return;
+  if(!await isActiveAdvisorSession(session)){sendJson(response,403,{ok:false,code:"inactive_account",message:"La cuenta del asesor está inactiva."});return}
   const result = await database.query(`
     select s.enrollment::text, s.full_name, s.sex, s.shift,
            c.code::text as career, g.name::text as group_name
