@@ -1,0 +1,329 @@
+{
+  "titulo": "Plan técnico priorizado · Sistema de Tutorías",
+  "base": "AUDITORIA_INTEGRAL_SISTEMA_TUTORIAS_v1.7.3.md",
+  "version_objetivo": "Por definir",
+  "fecha_exportacion": "2026-11-11T19:45:44.814Z",
+  "hallazgos": [
+    {
+      "id": "A-01",
+      "prioridad": "Alta",
+      "fase": "F1",
+      "titulo": "El nombre institucional no se actualiza en Registro",
+      "tareas": [
+        "Agregar el identificador esperado al encabezado existente, sin reestructurar la página.",
+        "Comprobar que la configuración cargada desde el servidor reemplace el texto al abrir Registro.",
+        "Revisar el mismo dato en pantalla, impresión y vista móvil."
+      ],
+      "dependencias": "Fase 0; acceso a configuración institucional en entorno de prueba (por definir).",
+      "responsable": "Erik Gustavo Pérez Enríquez",
+      "estado": "Aprobada",
+      "criterios_aceptacion": "El nombre almacenado se muestra al cargar Registro; el texto de sustitución no permanece cuando hay configuración. El encabezado conserva lectura correcta en pantalla, impresión y móvil.",
+      "riesgos": "Un selector mal enlazado puede dejar el encabezado vacío o romper el contenido impreso.",
+      "notas": "",
+      "evidencia_auditoria": "La auditoría pasó comprobaciones estáticas generales; no aporta evidencia de una prueba funcional específica para A-01.",
+      "evidencia_pruebas": "Erik Gustavo Pérez Enríquez"
+    },
+    {
+      "id": "A-02",
+      "prioridad": "Alta",
+      "fase": "F1",
+      "titulo": "Regresión en el catálogo de carreras",
+      "tareas": [
+        "Restituir campos separados para clave/abreviatura y nombre completo en la sección actual del catálogo.",
+        "Validar ambos valores en la interfaz y en el servidor; rechazar los casos incompletos conforme a la regla que se defina.",
+        "Persistir clave y nombre en sus campos correspondientes y conservar lectura de carreras ya almacenadas.",
+        "Mostrar la clave y el nombre en Administración y en el selector de Registro."
+      ],
+      "dependencias": "Fase 0; inspección del esquema real y de claves existentes. Definir regla de obligatoriedad/unicidad: por definir.",
+      "responsable": "Por definir",
+      "estado": "Pendiente",
+      "criterios_aceptacion": "Alta de una carrera conserva clave y nombre por separado; las carreras previas siguen listándose; Registro permite seleccionar la nueva sin cambios en otros catálogos.",
+      "riesgos": "Una migración o consulta mal interpretada podría duplicar, ocultar o reemplazar carreras existentes.",
+      "notas": "",
+      "evidencia_auditoria": "La auditoría identifica la regresión. No aporta prueba funcional de alta/edición/lectura de carrera para esta versión.",
+      "evidencia_pruebas": ""
+    },
+    {
+      "id": "A-03",
+      "prioridad": "Alta",
+      "fase": "F1",
+      "titulo": "Estadísticas e historial pueden quedar incompletos sin aviso",
+      "tareas": [
+        "Reemplazar carga truncada por paginación en el servidor, con total real, página y filtros aplicados.",
+        "Calcular agregados estadísticos en SQL para el conjunto completo filtrado, no solo la página visible.",
+        "Alinear historial de asesor y reportes administrativos en criterios de paginación y total.",
+        "Asegurar que exportación indique el alcance: todos los resultados del filtro o solo la página, según diseño acordado."
+      ],
+      "dependencias": "Fase 0; definición del conjunto de datos de prueba >5,000 asesorías y plan de rendimiento (por definir).",
+      "responsable": "Por definir",
+      "estado": "Pendiente",
+      "criterios_aceptacion": "Con al menos 5,001 registros de prueba, el total reportado coincide con la base; se navega hasta el último registro; cifras y duración cuadran con agregados independientes; no aparece pérdida silenciosa.",
+      "riesgos": "Agregaciones o filtros distintos entre pantalla y exportación pueden producir cifras inconsistentes; costo de consulta bajo volumen alto.",
+      "notas": "",
+      "evidencia_auditoria": "La auditoría confirma límites y riesgo. Las pruebas >1,000/>5,000 están pendientes.",
+      "evidencia_pruebas": ""
+    },
+    {
+      "id": "A-04",
+      "prioridad": "Alta",
+      "fase": "F1",
+      "titulo": "El servidor confía en horas enviadas por el navegador",
+      "tareas": [
+        "Definir reglas de fecha, duración máxima y zona horaria institucional con el área responsable (por definir).",
+        "Validar del lado servidor los límites definidos, coherencia de inicio/fin y pertenencia al cuatrimestre.",
+        "Evaluar y documentar si la sesión activa debe usar hora de servidor para inicio y cierre; decisión pendiente.",
+        "Probar valores normales, borde, futuro, fin anterior, duración excesiva y límite del periodo."
+      ],
+      "dependencias": "Fase 0; decisiones de negocio sobre zona horaria, duración máxima y control de sesión (por definir).",
+      "responsable": "Por definir",
+      "estado": "Pendiente",
+      "criterios_aceptacion": "La API rechaza fechas futuras o intervalos fuera de reglas; fechas válidas quedan en el periodo correcto; UI e informe muestran la misma duración calculada.",
+      "riesgos": "Elegir límites o zona horaria sin aprobación puede rechazar asesorías válidas o cambiar registros existentes.",
+      "notas": "",
+      "evidencia_auditoria": "La auditoría detectó confianza en el cliente; pruebas de horas manipuladas están pendientes.",
+      "evidencia_pruebas": ""
+    },
+    {
+      "id": "A-05",
+      "prioridad": "Alta",
+      "fase": "F1",
+      "titulo": "Posible exposición de datos entre asesores al cerrar sesión",
+      "tareas": [
+        "Limpiar valores sensibles, mensajes, resultados, filtros y contenido del formulario al cerrar sesión.",
+        "Al restaurar un borrador, verificar que pertenece a la identidad autenticada actual y que su vigencia está permitida.",
+        "Probar cambio de cuenta en la misma pestaña, cierre/recarga y dos cuentas de prueba.",
+        "Confirmar que DOM, almacenamiento de sesión y respuestas visibles no conservan información del usuario anterior."
+      ],
+      "dependencias": "Fase 0; dos cuentas de prueba y política de borradores/sesión (por definir).",
+      "responsable": "Por definir",
+      "estado": "Pendiente",
+      "criterios_aceptacion": "Tras cerrar sesión e iniciar otra cuenta en la misma pestaña, no se muestra nombre, matrícula, comentarios ni asesoría activa previa; no se recupera estado de otra identidad.",
+      "riesgos": "Limpiar de forma incompleta deja datos residuales; eliminar todo estado puede perder un borrador que la política permita conservar.",
+      "notas": "",
+      "evidencia_auditoria": "La auditoría encontró el riesgo; ciclo con dos cuentas, cierre y restauración aún está pendiente.",
+      "evidencia_pruebas": ""
+    },
+    {
+      "id": "A-06",
+      "prioridad": "Alta",
+      "fase": "F1",
+      "titulo": "Exportaciones susceptibles a fórmulas de hoja de cálculo",
+      "tareas": [
+        "Aplicar neutralización de fórmulas a cada celda textual antes de serializar exportaciones.",
+        "Generar XLSX real con celdas de texto como texto, sin fórmulas inesperadas.",
+        "Conservar caracteres acentuados, columnas, filtros y nombres de archivo del flujo actual.",
+        "Probar entradas con =, +, -, @, espacios/tabuladores previos, comillas y Unicode en CSV/XLSX."
+      ],
+      "dependencias": "Fase 0; confirmar formatos que siguen soportados y herramienta de hoja de cálculo disponible (por definir).",
+      "responsable": "Por definir",
+      "estado": "Pendiente",
+      "criterios_aceptacion": "Cadenas de prueba no se evalúan al abrir archivos; el libro abre sin reparación, conserva datos/acentos y las exportaciones mantienen su estructura esperada.",
+      "riesgos": "Neutralización inadecuada deja fórmula activa; neutralización demasiado amplia puede modificar el contenido legítimo exportado.",
+      "notas": "",
+      "evidencia_auditoria": "La auditoría detectó ausencia de neutralización. Archivos exportados con cargas de prueba y apertura real quedan pendientes.",
+      "evidencia_pruebas": ""
+    },
+    {
+      "id": "A-07",
+      "prioridad": "Alta",
+      "fase": "F1",
+      "titulo": "Migraciones duplicadas y sin prueba automatizada de actualización",
+      "tareas": [
+        "Inventariar ubicación y contenido de migraciones 001–003 y comparar las copias de 002.",
+        "Definir una única secuencia canónica ejecutable; mover la copia antigua a ubicación claramente excluida o eliminarla del conjunto ejecutable, sin pérdida del historial.",
+        "Automatizar creación de esquema limpio y ejecución ordenada 001→002→003.",
+        "Automatizar actualización de copia compatible de versión previa con datos semilla; verificar esquema y conservación de filas.",
+        "Comprobar idempotencia solo si la secuencia está diseñada para reejecutarse; documentar el resultado."
+      ],
+      "dependencias": "Fase 0; acceso a PostgreSQL de prueba, esquema de versión previa y datos sintéticos; identificador de migración vigente por definir.",
+      "responsable": "Por definir",
+      "estado": "Pendiente",
+      "criterios_aceptacion": "Ambas rutas (base limpia y actualización) terminan con esquema esperado y datos previos conservados; una sola secuencia se ejecuta por defecto; ningún script ejecuta DROP/TRUNCATE o borrado masivo.",
+      "riesgos": "Migración aplicada sobre base equivocada o duplicada puede dejar el esquema incoherente; ensayo destructivo sobre la base real es inaceptable.",
+      "notas": "",
+      "evidencia_auditoria": "La auditoría identifica duplicidad y falta de prueba. No se ejecutaron migraciones ni pruebas de base real en la revisión.",
+      "evidencia_pruebas": ""
+    },
+    {
+      "id": "M-01",
+      "prioridad": "Media",
+      "fase": "F1",
+      "titulo": "El selector psico se restablece a una opción inexistente",
+      "tareas": [
+        "Elegir con el área responsable si el valor inicial será “No” o si se añadirá una opción explícita de selección; decisión por definir.",
+        "Alinear option del HTML, valor guardado y función de limpieza del formulario con la decisión.",
+        "Probar registro consecutivo con canalización sí/no y restablecimiento tras cada envío."
+      ],
+      "dependencias": "Fase 0; confirmar semántica institucional de canalización (por definir).",
+      "responsable": "Por definir",
+      "estado": "Pendiente",
+      "criterios_aceptacion": "Tras guardar y limpiar, el selector muestra un valor válido de acuerdo con la decisión documentada; selección, persistencia y vista del historial mantienen el mismo significado.",
+      "riesgos": "Asignar “No” automáticamente puede registrar una decisión no expresada; mantener vacío puede permitir un dato ambiguo.",
+      "notas": "",
+      "evidencia_auditoria": "La auditoría describe la discrepancia; una prueba de registro consecutivo no está documentada.",
+      "evidencia_pruebas": ""
+    }
+  ],
+  "pruebas": {
+    "auth": [
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      }
+    ],
+    "reg": [
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      }
+    ],
+    "admin": [
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      }
+    ],
+    "catalog": [
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      }
+    ],
+    "limits": [
+      {
+        "result": "Aprobada",
+        "evidence": "Se amplio y se dejó sin límite de registros"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Se amplio y se dejó sin límite de registros"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      }
+    ],
+    "hours": [
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      }
+    ],
+    "export": [
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      }
+    ],
+    "migration": [
+      {
+        "result": "Aprobada",
+        "evidence": "Comprobado"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Comprobado"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Confirmado"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      },
+      {
+        "result": "Aprobada",
+        "evidence": "Funcionando"
+      }
+    ]
+  }
+}
