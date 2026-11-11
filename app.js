@@ -60,7 +60,7 @@ function applyPeriodCatalog(){
   const filter=$("#periodFilter");
   if(!filter)return;
   const previous=filter.value||"all";
-  filter.innerHTML=`<option value="all">Todos los cuatrimestres</option>`+C.periods.map(p=>`<option value="${p}">${p}</option>`).join("");
+  filter.replaceChildren();const allOption=document.createElement('option');allOption.value='all';allOption.textContent='Todos los cuatrimestres';filter.append(allOption,...C.periods.map(p=>{const option=document.createElement('option');option.value=String(p);option.textContent=String(p);return option}));
   filter.value=Array.from(filter.options).some(option=>option.value===previous)?previous:"all";
 }
 async function refreshPeriodCatalog(){
@@ -71,7 +71,7 @@ async function refreshPeriodCatalog(){
 
 // CAMPOS Y ALUMNOS: carga listas, vincula grupo con carrera y busca o presenta alumnos nuevos/existentes.
 function records(){return Array.isArray(remoteRecords)?remoteRecords:[]}
-function fill(id,arr){const e=$("#"+id);if(e)e.innerHTML=arr.map(x=>`<option>${x}</option>`).join("")}
+function fill(id,arr){const e=$("#"+id);if(!e)return;e.replaceChildren(...arr.map(value=>{const option=document.createElement('option');option.value=String(value);option.textContent=String(value);return option}))}
 function updateGroupsForCareer(preserveSelection=false){const career=$("#carrera")?.value,group=$("#grupo"),previous=group?.value;if(!remoteConfig?.groupsByCareer||!career||career==="Seleccione")return;fill("grupo",["Seleccione",...(remoteConfig.groupsByCareer[career]||[])]);if(preserveSelection&&group&&Array.from(group.options).some(option=>option.value===previous))group.value=previous}
 function setStudentFields(editable){["sexo","carrera","grupo","turno"].forEach(id=>$("#"+id).disabled=!editable);$("#nombre").readOnly=!editable}
 function showFoundStudent(f){$("#nombre").value=f.nombre||f.full_name||"";$("#sexo").value=f.sexo||f.sex||"";$("#carrera").value=f.carrera||f.career||appConfig().careers[0];updateGroupsForCareer();$("#grupo").value=f.grupo||f.group_name||appConfig().groups[0];$("#turno").value=f.turno||f.shift||"Matutino";setStudentFields(false);$("#status").textContent="ALUMNO ENCONTRADO"}
@@ -87,8 +87,8 @@ function startSession(){if(!$("#matricula").value.trim()||!$("#nombre").value.tr
 !$("#psico").value||$("#psico").value==="Seleccione"){
 alert("Complete todas las casillas obligatorias antes de iniciar la asesoría.");
 return}currentStart=new Date();$("#iniciar").disabled=true;$("#finalizar").disabled=false;$("#status").textContent="ASESORÍA EN CURSO";persistActiveSession();timerId=setInterval(updateTimer,1000);updateTimer()}
-function updateTimer(){if(!currentStart)return;const s=Math.floor((Date.now()-currentStart)/1000);$("#timer").textContent=new Date(s*1000).toISOString().substring(11,19)}
-function resetForm(){$("#matricula").value="";$("#sexo").selectedIndex=0;$("#nombre").value="";$("#sexo").value="Seleccione";$("#carrera").value="Seleccione";$("#grupo").value="Seleccione";$("#turno").value="Seleccione";$("#materia").value="Seleccione";$("#motivo").value="Seleccione";$("#psico").value="Seleccione";$("#comentarios").value="";setStudentFields(false);$("#status").textContent="SIN INICIAR";$("#timer").textContent="00:00:00";$("#matricula").focus()}
+function updateTimer(){if(!currentStart)return;const total=Math.max(0,Math.floor((Date.now()-currentStart)/1000)),hours=Math.floor(total/3600),minutes=Math.floor(total%3600/60),seconds=total%60;$("#timer").textContent=`${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`}
+function resetForm(focusMatricula=true){$("#matricula").value="";$("#sexo").selectedIndex=0;$("#nombre").value="";$("#sexo").value="Seleccione";$("#carrera").value="Seleccione";$("#grupo").value="Seleccione";$("#turno").value="Seleccione";$("#materia").value="Seleccione";$("#motivo").value="Seleccione";$("#psico").value="No";$("#comentarios").value="";setStudentFields(false);$("#status").textContent="SIN INICIAR";$("#timer").textContent="00:00:00";if(focusMatricula)$("#matricula").focus()}
 async function finishSession(){
   if(!currentStart||savingAdvisory)return;savingAdvisory=true;
   const end=new Date(),start=currentStart,mins=Math.max(0,Math.round((end-start)/60000));
@@ -114,7 +114,8 @@ function fmt(m){m=Number(m)||0;return `${Math.floor(m/60)}h ${String(m%60).padSt
 function escapeHTML(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function renderHistory(){const b=$("#history tbody");if(!b)return;const range=$("#rangeFilter").value,period=$("#periodFilter").value,rows=records().filter(x=>inRange(x,range,period)&&(period==="all"||x.periodo===period)),rowHTML=rows.map(x=>`<tr>${[x.fecha,x.inicio,x.fin,x.matricula,x.nombre,x.sexo||"",x.carrera,x.grupo,x.materia,x.motivo,x.comentarios||"",x.asesor,fmt(x.duracionMinutos),x.psico].map(v=>`<td>${escapeHTML(v)}</td>`).join("")}</tr>`).join("");b.innerHTML=rowHTML;const pb=$("#printTable tbody");if(pb)pb.innerHTML=rowHTML;if($("#printSchoolName"))$("#printSchoolName").textContent=appConfig().schoolName;if($("#printPeriod"))$("#printPeriod").textContent="REGISTRO DE ASESORÍAS · "+(period==="all"?appConfig().period:period);if($("#printAdvisorName"))$("#printAdvisorName").textContent=$("#advisorName")?.textContent||""}
 function filteredRecords(){const range=$("#rangeFilter")?.value||"all",period=$("#periodFilter")?.value||"all";return records().filter(x=>inRange(x,range,period)&&(period==="all"||x.periodo===period))}
-function exportCSV(){const h=["Fecha","Inicio","Fin","Matrícula","Alumno","Sexo","Carrera","Grupo","Turno","Materia","Motivo","Comentarios","Psicopedagogía","Asesor","Periodo","Duración minutos"],rows=filteredRecords(),csv=[h,...rows.map(x=>[x.fecha,x.inicio,x.fin,x.matricula,x.nombre,x.sexo,x.carrera,x.grupo,x.turno,x.materia,x.motivo,x.comentarios,x.psico,x.asesor,x.periodo,x.duracionMinutos])].map(a=>a.map(v=>`"${String(v??"").replaceAll('"','""')}"`).join(",")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download="historial_asesorias.csv";a.click()}
+function spreadsheetSafe(v){const text=String(v??'');return /^[=+\-@]/.test(text)?`'${text}`:text}
+function exportCSV(){const h=["Fecha","Inicio","Fin","Matrícula","Alumno","Sexo","Carrera","Grupo","Turno","Materia","Motivo","Comentarios","Psicopedagogía","Asesor","Periodo","Duración minutos"],rows=filteredRecords(),csv=[h,...rows.map(x=>[x.fecha,x.inicio,x.fin,x.matricula,x.nombre,x.sexo,x.carrera,x.grupo,x.turno,x.materia,x.motivo,x.comentarios,x.psico,x.asesor,x.periodo,x.duracionMinutos])].map(a=>a.map(v=>`"${spreadsheetSafe(v).replaceAll('"','""')}"`).join(",")).join("\n");const a=document.createElement("a"),url=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.href=url;a.download="historial_asesorias.csv";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 
 // ACCESO DEL ASESOR: inicia/restaura/cierra la sesión y sincroniza los registros con la API.
 async function loadRemoteAdvisories(){
@@ -184,6 +185,7 @@ async function logout(){
   secureUser=null;
   remoteRecords=[];
   clearInterval(timerId); timerId=null; currentStart=null;
+  resetForm(false);
   renderHistory();
   showLogin();
 }

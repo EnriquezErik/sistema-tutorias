@@ -1,12 +1,12 @@
 {
   "name": "sistema-tutorias",
-  "version": "1.7.1",
+  "version": "1.7.6",
   "private": true,
   "description": "Sistema web para el registro y administración de asesorías escolares",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --check server.js && node --check app.js && node --check admin.js && node tests/security-check.js"
+    "test": "node --check server.js && node --check app.js && node --check admin.js && node tests/security-check.js && node tests/responsive-check.js && node tests/audit-regression-check.js && node tests/phase2-check.js && node tests/phase2-growth-check.js && node tests/phase3-integration-check.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

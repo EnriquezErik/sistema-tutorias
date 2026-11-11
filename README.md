@@ -4,6 +4,10 @@ La v42 mantiene el registro de asesorías, catálogos, estadísticas, filtros, i
 
 La Administración utiliza navegación por vistas: Inicio y Estadísticas permanecen juntos; Historial y reportes, Catálogos y Seguridad se presentan por separado desde la parte superior, sin recorridos verticales entre áreas.
 
+En dispositivos móviles, el encabezado administrativo distribuye el logotipo, el nombre institucional y las acciones de sesión en filas independientes para evitar superposiciones.
+
+La versión 1.7.6 conserva la estructura de Registro y Administración y concluye la implementación interna de las fases 1 y 2. Incluye zona horaria institucional, sesiones revocables, protección de datos maestros del alumno, límites de longitud, salud pública mínima, bitácora ampliada, control persistente de intentos, índices de crecimiento, reportes paginados opcionales y estadísticas agregadas. Ninguno de estos cambios elimina registros existentes.
+
 Para orientarse entre archivos y funciones, consulte [`GUIA_DEL_CODIGO.md`](GUIA_DEL_CODIGO.md). Abra la carpeta raíz o `sistema-tutorias.code-workspace` en Visual Studio Code.
 
 El archivo `logo-bis-universities.png` debe permanecer en la carpeta raíz junto a `index.html`, `admin.html` y `server.js`. La aplicación utiliza una ruta pública absoluta para mostrarlo en los accesos, encabezados e impresiones de ambas páginas.
@@ -34,7 +38,7 @@ Para una instalación nueva ejecute, en orden:
 2. `database/002_acceso_administrador.sql`
 3. `database/003_fortalecimiento_seguridad.sql`
 
-Para actualizar desde v40 ejecute únicamente la migración 003. Los registros existentes no se eliminan.
+Para una instalación existente que ya cuenta con las migraciones 001 a 003, ejecute en orden `database/004_integridad_seguridad_crecimiento.sql` y `database/005_indices_crecimiento.sql` antes de publicar la versión 1.7.6. Ambas migraciones son acumulativas y no eliminan registros.
 
 ## Publicación
 

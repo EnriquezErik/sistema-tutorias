@@ -1,5 +1,13 @@
 # v42 · Seguridad y despliegue
 
+## Actualización a la versión 1.7.6
+
+La versión 1.7.6 acumula las correcciones de la fase 1 y la fase 2. Antes de publicarla, realice un respaldo verificable de PostgreSQL/Supabase. Ejecute primero `database/004_integridad_seguridad_crecimiento.sql` y después `database/005_indices_crecimiento.sql`. Ninguna de las dos migraciones elimina asesorías, alumnos, usuarios ni catálogos.
+
+Después de desplegar, complete la matriz de fase 3 incluida en `AUDITORIA_FASES_1_2_3.md`. La validación automática no sustituye las pruebas en Render, Supabase ni en dispositivos físicos.
+
+Antes de publicar el código, genere un respaldo de Supabase y ejecute una sola vez `database/004_integridad_seguridad_crecimiento.sql`. La migración añade controles sin borrar ni reescribir registros existentes. Después publique el código y compruebe el acceso de administrador y asesor.
+
 Esta versión conserva la estructura funcional estable y añade protección de las pantallas de acceso. La v40 permanece como respaldo histórico.
 
 ## Antes de desplegar
