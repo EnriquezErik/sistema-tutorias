@@ -292,17 +292,25 @@ input,select,textarea,button{min-width:0;max-width:100%}
   .print-document-footer{display:flex;justify-content:space-between;gap:12px;margin-top:10px;padding-top:6px;border-top:1px solid #aebfc5;color:#6e7d83;font-size:7px}
 }
 
-/* Navegación administrativa persistente durante el desplazamiento. */
-.admin-nav{
+/* Encabezado institucional y navegación persistentes durante el desplazamiento. */
+.admin-sticky-shell{
   position:sticky;
   top:0;
   z-index:50;
+  background:#fff;
+  box-shadow:0 4px 12px #1d3d4a14;
+}
+.admin-sticky-shell .admin-topbar{position:relative;z-index:1}
+.admin-nav{
+  position:relative;
+  top:auto;
+  z-index:1;
   max-width:none;
   margin:0;
   padding:8px max(18px,calc((100vw - 1500px)/2 + 18px));
   background:rgba(243,245,247,.97);
   border-bottom:1px solid #d9e1e5;
-  box-shadow:0 4px 12px #1d3d4a14;
+  box-shadow:none;
   backdrop-filter:blur(8px);
   -webkit-backdrop-filter:blur(8px);
 }
@@ -325,4 +333,4 @@ input,select,textarea,button{min-width:0;max-width:100%}
   .admin-nav a,.admin-nav button{width:auto;min-width:max-content;white-space:nowrap}
 }
 
-@media print{.admin-nav{display:none!important}}
+@media print{.admin-sticky-shell{position:static!important;box-shadow:none!important}.admin-nav{display:none!important}}

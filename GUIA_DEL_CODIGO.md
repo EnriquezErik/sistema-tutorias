@@ -90,6 +90,6 @@ Las migraciones son acumulativas. Para instalación nueva, el README indica el o
 
 ## 8. Observaciones de la copia recibida
 
-- El proyecto corresponde a la línea estable v42 y `package.json` declara la versión técnica 1.7.15. La exportación administrativa produce libros `.xlsx`, la impresión estadística incluye el resumen ejecutivo del periodo y la navegación administrativa permanece visible durante el desplazamiento. Registro conserva su funcionamiento anterior y valida nuevamente el estado de la cuenta antes de consultar alumnos.
+- El proyecto corresponde a la línea estable v42 y `package.json` declara la versión técnica 1.7.16. La exportación administrativa produce libros `.xlsx`, la impresión estadística incluye el resumen ejecutivo del periodo y el encabezado institucional permanece fijo junto con la navegación administrativa. Registro conserva su funcionamiento anterior y valida nuevamente el estado de la cuenta antes de consultar alumnos.
 - Hay dos `002_acceso_administrador.sql` diferentes. El README referencia la carpeta `database/` para la secuencia de migraciones. No ejecutes ambos archivos.
 - La carpeta `tests/` ya venía en el ZIP. En esta preparación se añadieron comentarios y documentación; no se ejecutaron pruebas ni se alteró el comportamiento del sistema.

@@ -7,7 +7,7 @@ const styles=fs.readFileSync('styles.css','utf8');
 
 for(const [name,html] of [['Registro',index],['Administración',admin]]){
   assert(html.includes('name="viewport"'),`${name} debe declarar un viewport adaptable`);
-  assert(html.includes('styles.css?v=1.7.15'),`${name} debe cargar los estilos adaptables actuales`);
+  assert(html.includes('styles.css?v=1.7.16'),`${name} debe cargar los estilos adaptables actuales`);
 }
 assert(styles.includes('@media(max-width:900px)'), 'Falta soporte para teléfonos horizontales y tabletas pequeñas');
 assert(styles.includes('@media(max-width:800px)'), 'Falta adaptación principal para tabletas y móviles');
@@ -22,5 +22,6 @@ assert(styles.includes('-webkit-overflow-scrolling:touch'), 'Las tablas deben ad
 assert(styles.includes('.actions{display:grid'), 'Los controles de asesoría deben apilarse en teléfonos');
 assert(styles.includes('.admin-filters{grid-template-columns:1fr}'), 'Los filtros administrativos deben apilarse en teléfonos');
 assert(styles.includes('.filters button{white-space:nowrap'),'Los botones del historial no deben dividirse al cambiar el ancho');
-assert(styles.includes('position:sticky')&&styles.includes('overflow-x:auto'),'La navegación administrativa debe permanecer visible y ser desplazable en móvil');
+assert(admin.includes('class="admin-sticky-shell"'),'Administración debe agrupar el encabezado y la navegación fija');
+assert(styles.includes('.admin-sticky-shell')&&styles.includes('position:sticky')&&styles.includes('overflow-x:auto'),'El encabezado y la navegación administrativa deben permanecer visibles, con menú desplazable en móvil');
 console.log('Estructura adaptable de Registro y Administración: OK');
