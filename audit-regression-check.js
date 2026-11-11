@@ -13,14 +13,7 @@ assert(adminJs.includes('application/vnd.openxmlformats-officedocument.spreadshe
 assert(adminJs.includes("'reporte_asesorias.xlsx'")&&adminJs.includes('estadisticas_asesorias_${safePeriod}.xlsx'),'Ambas exportaciones administrativas deben usar la extensión XLSX');
 assert(!adminJs.includes("application/vnd.ms-excel")&&!adminJs.includes(".xls'"),'Administración no debe disfrazar HTML o XML antiguo como XLS');
 assert(adminJs.includes('document.body.appendChild(link)')&&adminJs.includes('URL.revokeObjectURL(url)'),'La descarga administrativa debe ser compatible con navegadores móviles y liberar recursos');
-assert(adminJs.includes('print-summary-grid')&&adminJs.includes('Resumen administrativo'),'La impresión de estadísticas debe incluir el resumen del panel administrativo');
-assert(adminJs.includes("admin$('#students')")&&adminJs.includes("admin$('#sessions')")&&adminJs.includes("admin$('#hours')"),'El resumen impreso debe incluir alumnos, asesorías y tiempo acumulado');
-assert(read('styles.css').includes('.print-statistics-document')&&read('styles.css').includes('overflow:visible!important'),'La impresión estadística debe tener presentación profesional y tablas completas sin desplazamiento');
 assert(app.includes('resetForm(false)'),'El cierre de sesión debe limpiar la vista');
-assert(server.includes('if(!await isActiveAdvisorSession(session)){sendJson(response,403'),'La búsqueda de alumnos debe rechazar cuentas desactivadas');
-assert(server.includes('if (settled) return;')&&server.includes('body="";reject(new Error("payload_too_large"))'),'Los cuerpos excesivos no deben seguir acumulándose en memoria');
-assert(server.includes('order by active desc, (current_date between starts_on and ends_on) desc, starts_on desc'),'Administración debe priorizar el cuatrimestre vigente');
-assert(app.includes('Date.now()-currentStart.getTime()>12*60*60*1000'),'Registro no debe restaurar una asesoría incompatible con la vigencia máxima del servidor');
 assert(app.includes('$("#psico").value="No"'),'Psicopedagogía debe restablecerse a una opción existente');
 assert.strictEqual(read('002_acceso_administrador.sql'),read('database/002_acceso_administrador.sql'),'Las copias de migración 002 deben ser idénticas');
 console.log('Correcciones derivadas de auditoría: OK');

@@ -18,7 +18,7 @@ El sistema se divide en tres capas: **interfaz web** (HTML y CSS), **lógica del
 | `database/001_esquema_inicial_sistema_tutorias.sql` | Migración inicial: tablas, relaciones, índices, triggers, RLS y catálogos iniciales. |
 | `database/002_acceso_administrador.sql` | Migración 002 documentada: acceso administrativo y recuperación. |
 | `database/003_fortalecimiento_seguridad.sql` | Migración de bitácora y fortalecimiento de seguridad asociada a v41. |
-| `002_acceso_administrador.sql` | Copia idéntica de `database/002_acceso_administrador.sql`, conservada por compatibilidad con el procedimiento de despliegue existente. Ejecutar una sola copia. |
+| `002_acceso_administrador.sql` | Copia antigua diferente del SQL en `database/`; contiene una nota de v25. Se conserva como referencia; no ejecutar las dos versiones. |
 | `package.json` / `package-lock.json` | Metadatos, dependencias y comandos Node.js (`npm start`, `npm test`). |
 | `tests/security-check.js` | Comprobación estática que acompaña al proyecto; no equivale a una prueba integral con base de datos. |
 | `README.md` | Resumen, instalación y orden de migraciones indicado por el proyecto. |
@@ -90,6 +90,6 @@ Las migraciones son acumulativas. Para instalación nueva, el README indica el o
 
 ## 8. Observaciones de la copia recibida
 
-- El proyecto corresponde a la línea estable v42 y `package.json` declara la versión técnica 1.7.16. La exportación administrativa produce libros `.xlsx`, la impresión estadística incluye el resumen ejecutivo del periodo y el encabezado institucional permanece fijo junto con la navegación administrativa. Registro conserva su funcionamiento anterior y valida nuevamente el estado de la cuenta antes de consultar alumnos.
+- El proyecto corresponde a la línea estable v42 y `package.json` declara la versión técnica 1.7.12. La exportación administrativa produce libros `.xlsx` mediante una biblioteca estándar incluida en el proyecto; Registro conserva su funcionamiento anterior.
 - Hay dos `002_acceso_administrador.sql` diferentes. El README referencia la carpeta `database/` para la secuencia de migraciones. No ejecutes ambos archivos.
 - La carpeta `tests/` ya venía en el ZIP. En esta preparación se añadieron comentarios y documentación; no se ejecutaron pruebas ni se alteró el comportamiento del sistema.
