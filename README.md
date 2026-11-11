@@ -6,7 +6,7 @@ La Administración utiliza navegación por vistas: Inicio y Estadísticas perman
 
 En dispositivos móviles, el encabezado administrativo distribuye el logotipo, el nombre institucional y las acciones de sesión en filas independientes para evitar superposiciones.
 
-La versión 1.7.10 conserva la estructura y las correcciones anteriores, y declara el logotipo institucional como icono del sitio para eliminar la solicitud inexistente de `favicon.ico`. Ninguno de estos cambios elimina registros existentes.
+La versión 1.7.11 conserva la estructura y todas las correcciones anteriores. En Administración, las exportaciones de estadísticas e historial ahora generan archivos `.xlsx` auténticos, compatibles con Excel de escritorio y Office móvil. La página de Registro de Asesorías no fue modificada. Ninguno de estos cambios elimina registros existentes.
 
 Para orientarse entre archivos y funciones, consulte [`GUIA_DEL_CODIGO.md`](GUIA_DEL_CODIGO.md). Abra la carpeta raíz o `sistema-tutorias.code-workspace` en Visual Studio Code.
 
