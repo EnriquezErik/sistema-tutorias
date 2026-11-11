@@ -13,7 +13,7 @@ assert(admin.includes('id="exportExcelBtn"')&&admin.includes('id="printReportBtn
 assert(admin.includes('id="exportStatsExcelBtn"')&&admin.includes('id="printStatsBtn"'),'Estadísticas debe conservar sus salidas');
 assert(app.includes('spreadsheetSafe')&&adminJs.includes('spreadsheetSafe'),'Las exportaciones deben neutralizar fórmulas');
 assert(styles.includes('@media(max-width:420px)')&&styles.includes('@media(min-width:1700px)'),'Debe cubrir pantallas estrechas y amplias');
-assert(index.includes('styles.css?v=1.7.10')&&admin.includes('styles.css?v=1.7.10'),'Las vistas deben cargar la versión final de estilos');
+assert(index.includes('styles.css?v=1.7.14')&&admin.includes('styles.css?v=1.7.14'),'Las vistas deben cargar la versión final de estilos');
 assert(index.includes('id="advisorLoginForm"')&&index.includes('name="password"'),'El acceso debe usar un formulario reconocido por el navegador');
 assert(admin.includes('<form id="adminLoginForm"')&&admin.includes('<form id="adminRecoveryForm"'),'Administración debe contener acceso y recuperación en formularios');
 assert(admin.includes('id="adminSecurityForm"')&&admin.includes('name="currentPassword"'),'La actualización de seguridad debe estar dentro de un formulario');

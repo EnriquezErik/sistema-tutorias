@@ -6,7 +6,7 @@ La Administración utiliza navegación por vistas: Inicio y Estadísticas perman
 
 En dispositivos móviles, el encabezado administrativo distribuye el logotipo, el nombre institucional y las acciones de sesión en filas independientes para evitar superposiciones.
 
-La versión 1.7.13 conserva la estructura y todas las correcciones anteriores. En Administración, las exportaciones de estadísticas e historial se generan mediante una biblioteca XLSX estándar incluida localmente, compatible con Excel de escritorio y Office móvil. La impresión de Estadísticas incorpora un resumen ejecutivo del panel administrativo y una presentación optimizada para papel y PDF. La página de Registro de Asesorías no fue modificada. Ninguno de estos cambios elimina registros existentes.
+La versión 1.7.14 parte de la versión estable 1.7.13 y conserva la estructura funcional. Organiza las migraciones ejecutables en `database/`, archiva fuera de esa ruta la copia duplicada de la migración 002 y coloca los comprobadores existentes en `tests/`, como ya esperaba el comando `npm test`. También actualiza las referencias de versión de los archivos de interfaz. No ejecuta migraciones ni modifica datos de PostgreSQL. La prueba real de migración desde una base limpia y desde una base anterior sigue pendiente de un entorno PostgreSQL desechable.
 
 Para orientarse entre archivos y funciones, consulte [`GUIA_DEL_CODIGO.md`](GUIA_DEL_CODIGO.md). Abra la carpeta raíz o `sistema-tutorias.code-workspace` en Visual Studio Code.
 
@@ -32,13 +32,7 @@ Para conocer la función de cada archivo y los grupos principales de funciones, 
 
 ## Base de datos
 
-Para una instalación nueva ejecute, en orden:
-
-1. `database/001_esquema_inicial_sistema_tutorias.sql`
-2. `database/002_acceso_administrador.sql`
-3. `database/003_fortalecimiento_seguridad.sql`
-
-La versión 1.7.10 puede publicarse después de las migraciones o, gracias a su compatibilidad, antes de ejecutarlas sin bloquear el acceso. Ambas migraciones son acumulativas y no eliminan registros.
+La secuencia canónica disponible contiene las migraciones 001 a 005 en `database/`. Para una instalación nueva, ejecútelas en orden. Para actualizar una base existente, confirma primero su versión y aplica únicamente las migraciones pendientes. Antes de cualquier ejecución crea un respaldo verificable. La secuencia no se ejecutó como parte de esta preparación; usa primero una base PostgreSQL desechable.
 
 ## Publicación
 
@@ -46,7 +40,7 @@ Consulte `SEGURIDAD_Y_DESPLIEGUE.md`. Son obligatorias en Render las variables `
 
 ## Comprobaciones
 
-- `npm test` valida sintaxis y controles esenciales de seguridad.
+- `npm test` valida sintaxis, controles estáticos, compatibilidad del esquema, estructura de migraciones y exportación XLSX. No sustituye la ejecución de 001→005 en PostgreSQL desechable.
 - `/api/health` confirma la conexión con PostgreSQL.
 - `/api/bootstrap` entrega los catálogos activos.
 

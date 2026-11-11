@@ -13,7 +13,12 @@ assert(adminJs.includes('application/vnd.openxmlformats-officedocument.spreadshe
 assert(adminJs.includes("'reporte_asesorias.xlsx'")&&adminJs.includes('estadisticas_asesorias_${safePeriod}.xlsx'),'Ambas exportaciones administrativas deben usar la extensión XLSX');
 assert(!adminJs.includes("application/vnd.ms-excel")&&!adminJs.includes(".xls'"),'Administración no debe disfrazar HTML o XML antiguo como XLS');
 assert(adminJs.includes('document.body.appendChild(link)')&&adminJs.includes('URL.revokeObjectURL(url)'),'La descarga administrativa debe ser compatible con navegadores móviles y liberar recursos');
+assert(adminJs.includes('print-summary-grid')&&adminJs.includes('Resumen administrativo'),'La impresión de estadísticas debe incluir el resumen del panel administrativo');
+assert(adminJs.includes("admin$('#students')")&&adminJs.includes("admin$('#sessions')")&&adminJs.includes("admin$('#hours')"),'El resumen impreso debe incluir alumnos, asesorías y tiempo acumulado');
+assert(read('styles.css').includes('.print-statistics-document')&&read('styles.css').includes('overflow:visible!important'),'La impresión estadística debe tener presentación profesional y tablas completas sin desplazamiento');
 assert(app.includes('resetForm(false)'),'El cierre de sesión debe limpiar la vista');
 assert(app.includes('$("#psico").value="No"'),'Psicopedagogía debe restablecerse a una opción existente');
-assert.strictEqual(read('002_acceso_administrador.sql'),read('database/002_acceso_administrador.sql'),'Las copias de migración 002 deben ser idénticas');
+assert.strictEqual(read('legacy/002_acceso_administrador_duplicate.sql.archived'),read('database/002_acceso_administrador.sql'),'La copia archivada de migración 002 debe coincidir con la secuencia canónica');
+assert(!require('fs').existsSync('002_acceso_administrador.sql'),'No debe existir una segunda migración 002 ejecutable en la raíz');
+assert(!require('fs').existsSync('database/002_acceso_administrador (1).sql'),'No debe existir una segunda migración 002 en la ruta canónica');
 console.log('Correcciones derivadas de auditoría: OK');

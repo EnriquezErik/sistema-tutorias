@@ -6,7 +6,7 @@ La versión 1.7.9 conserva la detección automática del esquema y los usuarios 
 
 Después de desplegar, complete la matriz de fase 3 incluida en `AUDITORIA_FASES_1_2_3.md`. La validación automática no sustituye las pruebas en Render, Supabase ni en dispositivos físicos.
 
-Antes de publicar el código, genere un respaldo de Supabase y ejecute una sola vez `database/004_integridad_seguridad_crecimiento.sql`. La migración añade controles sin borrar ni reescribir registros existentes. Después publique el código y compruebe el acceso de administrador y asesor.
+Antes de publicar el código, genere un respaldo de Supabase y ejecute primero en una base PostgreSQL desechable la secuencia requerida. En esta versión las migraciones ejecutables están en `database/`; no ejecute el archivo archivado en `legacy/`. Después de validar y aprobar el resultado, ejecute la migración requerida en el entorno correspondiente. La migración añade controles sin borrar ni reescribir registros existentes. Después publique el código y compruebe el acceso de administrador y asesor.
 
 Esta versión conserva la estructura funcional estable y añade protección de las pantallas de acceso. La v40 permanece como respaldo histórico.
 
