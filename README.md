@@ -6,7 +6,7 @@ La Administración utiliza navegación por vistas: Inicio y Estadísticas perman
 
 En dispositivos móviles, el encabezado administrativo distribuye el logotipo, el nombre institucional y las acciones de sesión en filas independientes para evitar superposiciones.
 
-La versión 1.7.6 conserva la estructura de Registro y Administración y concluye la implementación interna de las fases 1 y 2. Incluye zona horaria institucional, sesiones revocables, protección de datos maestros del alumno, límites de longitud, salud pública mínima, bitácora ampliada, control persistente de intentos, índices de crecimiento, reportes paginados opcionales y estadísticas agregadas. Ninguno de estos cambios elimina registros existentes.
+La versión 1.7.9 conserva la estructura de Registro y Administración, mantiene la compatibilidad automática con bases anteriores y completa la corrección semántica de los formularios de acceso, recuperación y seguridad. También conserva alineados los botones Exportar CSV e Imprimir. Ninguno de estos cambios elimina registros existentes.
 
 Para orientarse entre archivos y funciones, consulte [`GUIA_DEL_CODIGO.md`](GUIA_DEL_CODIGO.md). Abra la carpeta raíz o `sistema-tutorias.code-workspace` en Visual Studio Code.
 
@@ -38,7 +38,7 @@ Para una instalación nueva ejecute, en orden:
 2. `database/002_acceso_administrador.sql`
 3. `database/003_fortalecimiento_seguridad.sql`
 
-Para una instalación existente que ya cuenta con las migraciones 001 a 003, ejecute en orden `database/004_integridad_seguridad_crecimiento.sql` y `database/005_indices_crecimiento.sql` antes de publicar la versión 1.7.6. Ambas migraciones son acumulativas y no eliminan registros.
+La versión 1.7.9 puede publicarse después de las migraciones o, gracias a su compatibilidad, antes de ejecutarlas sin bloquear el acceso. Ambas migraciones son acumulativas y no eliminan registros.
 
 ## Publicación
 

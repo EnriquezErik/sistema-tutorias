@@ -2,7 +2,7 @@
 
 ## Propósito
 
-Este registro documenta la revisión integral del Sistema de Tutorías, las correcciones aplicadas sin modificar su estructura funcional y las comprobaciones necesarias antes de publicar la versión 1.7.6. Su contenido se preparó como evidencia técnica para el Reto 5.
+Este registro documenta la revisión integral del Sistema de Tutorías, las correcciones aplicadas sin modificar su estructura funcional y las comprobaciones necesarias antes de publicar la versión 1.7.9. Su contenido se preparó como evidencia técnica para el Reto 5.
 
 ## Alcance y protección de la información
 
@@ -49,6 +49,16 @@ Resultado interno: concluida. La activación progresiva de la interfaz paginada 
 
 ## Fase 3 validación integral
 
+### Incidencia de compatibilidad detectada durante el despliegue
+
+Al publicar la versión 1.7.6 antes de ejecutar la migración 004, el acceso administrativo mostró el mensaje «No fue posible ingresar» y el Registro permaneció en «Verificando acceso». La causa fue que el servidor consultaba la columna `session_version`, todavía inexistente en la base desplegada. No se perdieron usuarios, contraseñas ni asesorías.
+
+La versión 1.7.7 corrigió esta regresión mediante detección automática del esquema. Cuando la columna existe, utiliza sesiones revocables; cuando aún no existe, conserva temporalmente la validación compatible con la base anterior. Se añadió una prueba de regresión específica para impedir que una actualización vuelva a bloquear ambos accesos.
+
+### Advertencias del navegador y alineación del historial
+
+Durante una revisión con las herramientas de desarrollador se identificó que Chrome advertía que varios campos de contraseña no estaban contenidos en formularios. También se observó que «Exportar CSV» podía dividirse en dos líneas al reducir y volver a ampliar la ventana. Las versiones 1.7.8 y 1.7.9 incorporaron formularios semánticos en Registro, acceso administrativo, recuperación y seguridad; añadieron nombres y atributos de autocompletado; y estabilizaron la distribución de las acciones del historial. Los mensajes atribuidos a `content.js` pertenecen al contexto de extensiones del navegador y deben diferenciarse de los archivos del sistema.
+
 ### Comprobaciones automatizadas aprobadas
 
 - Sintaxis de servidor, Registro y Administración.
@@ -94,6 +104,6 @@ Como hallazgo organizacional, puede explicarse que este proyecto integra funcion
 2. Crear y verificar respaldo de la base de datos.
 3. Ejecutar migración 004.
 4. Ejecutar migración 005.
-5. Publicar la versión 1.7.6.
+5. Publicar la versión 1.7.9.
 6. Ejecutar las pruebas de fase 3.
 7. Autorizar producción únicamente si no existen fallas críticas.

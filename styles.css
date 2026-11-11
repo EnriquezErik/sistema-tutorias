@@ -4,7 +4,7 @@
 .login-card{width:min(410px,100%);background:#fff;border:1px solid #dfe5e9;border-radius:14px;padding:28px;box-shadow:0 12px 35px #00000018}
 .login-card h1{text-align:center;margin:10px 0 4px;font-size:24px}
 .login-subtitle{text-align:center;color:#71808a;margin:0 0 22px;font-size:13px}
-.login-logo{width:min(280px,100%);height:62px;border:0;margin:0 auto 8px;display:flex;align-items:center;justify-content:center}
+.login-logo{width:min(280px,100%);height:62px;border:0;margin:0 auto 8px;display:flex;align-items:center;justify-content:center}.login-form{display:contents}
 .login-logo img{display:block;width:100%;height:100%;object-fit:contain;object-position:center}
 .login-card label{display:block;margin-bottom:14px}
 .login-btn{width:100%;margin-top:4px}
@@ -156,7 +156,10 @@ body.locked>:not(.login-screen):not(script){display:none!important}
   .admin-nav a,.admin-nav button{font-size:10px;padding:8px 5px}
 }
 
-/* ===== Auditoría adaptable v1.7.6: Registro y Administración ===== */
+/* ===== Auditoría adaptable v1.7.9: Registro y Administración ===== */
+
+/* Historial: conserva filtros y acciones alineados al cambiar el ancho de la ventana. */
+.filters{flex-wrap:wrap;justify-content:flex-end}.filters button{white-space:nowrap;flex:0 0 auto;min-width:max-content}
 html{max-width:100%;overflow-x:hidden;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{max-width:100%;overflow-x:hidden}
 img{max-width:100%}

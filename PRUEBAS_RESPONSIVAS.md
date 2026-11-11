@@ -1,4 +1,4 @@
-# Matriz de revisión adaptable · versión 1.7.6
+# Matriz de revisión adaptable · versión 1.7.9
 
 Esta versión conserva la lógica y los registros del sistema. Los cambios se limitan a la presentación adaptable de Registro y Administración.
 

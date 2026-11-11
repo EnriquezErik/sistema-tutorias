@@ -27,6 +27,24 @@ const database = DATABASE_URL
       connectionTimeoutMillis: 10000
     })
   : null;
+let schemaCapabilitiesPromise = null;
+
+async function schemaCapabilities() {
+  if (!database) return { sessionVersion: false };
+  if (!schemaCapabilitiesPromise) {
+    schemaCapabilitiesPromise = database.query(`
+      select exists(
+        select 1 from information_schema.columns
+         where table_schema='public' and table_name='app_users' and column_name='session_version'
+      ) as session_version
+    `).then(result => ({ sessionVersion: result.rows[0]?.session_version === true }))
+      .catch(error => {
+        console.warn('No fue posible comprobar la versión del esquema:', error.message);
+        return { sessionVersion: false };
+      });
+  }
+  return schemaCapabilitiesPromise;
+}
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -138,7 +156,10 @@ function readSession(request, cookieName = "advisor_session") {
 
 async function isActiveAdvisorSession(session){
   if(!session||session.rol!=="advisor"||!database)return false;
-  const result=await database.query("select 1 from public.app_users where id=$1 and role='advisor' and active=true and session_version=$2",[session.id,session.sv||1]);
+  const capabilities=await schemaCapabilities();
+  const result=capabilities.sessionVersion
+    ? await database.query("select 1 from public.app_users where id=$1 and role='advisor' and active=true and session_version=$2",[session.id,session.sv||1])
+    : await database.query("select 1 from public.app_users where id=$1 and role='advisor' and active=true",[session.id]);
   return result.rowCount===1;
 }
 
@@ -194,8 +215,10 @@ async function apiLogin(request, response) {
   const rateKey = loginRateKey(request, username, area);
   if (await loginBlocked(rateKey)) { sendJson(response,429,{ok:false,code:"too_many_attempts",message:"Demasiados intentos. Espere 15 minutos antes de volver a intentar."}); return; }
 
+  const capabilities=await schemaCapabilities();
+  const sessionColumn=capabilities.sessionVersion?'session_version':'1 as session_version';
   const result = await database.query(
-    "select id, username::text, full_name, password_hash, role, session_version from public.app_users where active = true and lower(username::text) = lower($1) limit 1",
+    `select id, username::text, full_name, password_hash, role, ${sessionColumn} from public.app_users where active = true and lower(username::text) = lower($1) limit 1`,
     [username]
   );
   const user = result.rows[0];
@@ -228,7 +251,10 @@ async function requireAdmin(request, response) {
 
 async function isActiveAdminSession(session){
   if(!session||session.rol!=="admin"||!database)return false;
-  const result=await database.query("select 1 from public.app_users where id=$1 and role='admin' and active=true and session_version=$2",[session.id,session.sv||1]);
+  const capabilities=await schemaCapabilities();
+  const result=capabilities.sessionVersion
+    ? await database.query("select 1 from public.app_users where id=$1 and role='admin' and active=true and session_version=$2",[session.id,session.sv||1])
+    : await database.query("select 1 from public.app_users where id=$1 and role='admin' and active=true",[session.id]);
   return result.rowCount===1;
 }
 
@@ -430,7 +456,9 @@ async function apiAccountSecurity(request, response) {
   if(user.password_hash && !await bcrypt.compare(currentPassword,user.password_hash)){sendJson(response,401,{ok:false,message:"La contraseña actual es incorrecta."});return}
   const passwordHash=await bcrypt.hash(newPassword,12);
   const recoveryHash=await bcrypt.hash(recoveryCode,12);
-  await database.query("update public.app_users set password_hash=$1,recovery_code_hash=$2,session_version=session_version+1 where id=$3",[passwordHash,recoveryHash,session.id]);
+  const capabilities=await schemaCapabilities();
+  if(capabilities.sessionVersion)await database.query("update public.app_users set password_hash=$1,recovery_code_hash=$2,session_version=session_version+1 where id=$3",[passwordHash,recoveryHash,session.id]);
+  else await database.query("update public.app_users set password_hash=$1,recovery_code_hash=$2 where id=$3",[passwordHash,recoveryHash,session.id]);
   await audit(request,session,"ACCOUNT_SECURITY_CHANGED","account",session.id,{});
   sendJson(response,200,{ok:true,message:"Contraseña y recuperación configuradas."});
 }
@@ -445,7 +473,9 @@ async function apiRecoverAccess(request,response){
   const user=result.rows[0];
   if(!user||!user.recovery_code_hash||!await bcrypt.compare(recoveryCode,user.recovery_code_hash)){await recordLoginFailure(rateKey);await audit(request,{username},"RECOVERY_FAILED","account",null,{});sendJson(response,401,{ok:false,message:"Usuario o clave de recuperación incorrectos."});return}
   const passwordHash=await bcrypt.hash(newPassword,12);
-  await database.query("update public.app_users set password_hash=$1,recovery_code_hash=null,session_version=session_version+1 where id=$2",[passwordHash,user.id]);
+  const capabilities=await schemaCapabilities();
+  if(capabilities.sessionVersion)await database.query("update public.app_users set password_hash=$1,recovery_code_hash=null,session_version=session_version+1 where id=$2",[passwordHash,user.id]);
+  else await database.query("update public.app_users set password_hash=$1,recovery_code_hash=null where id=$2",[passwordHash,user.id]);
   await clearLoginFailures(rateKey);await audit(request,{id:user.id,username},"RECOVERY_SUCCESS","account",user.id,{});
   sendJson(response,200,{ok:true,message:"Contraseña restablecida. Ingrese y configure una nueva clave de recuperación."});
 }
@@ -468,7 +498,10 @@ async function apiSetUserActive(request,response,userId){
   if(!await requireAdmin(request,response))return;
   let body;try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false,message:"Solicitud inválida."});return}
   if(typeof body.active!=="boolean"){sendJson(response,400,{ok:false,message:"Indique el estado de la cuenta."});return}
-  const result=await database.query("update public.app_users set active=$1,session_version=case when $1=false then session_version+1 else session_version end where id=$2::uuid and role='advisor' returning username::text as usuario, active as activo",[body.active,userId]);
+  const capabilities=await schemaCapabilities();
+  const result=capabilities.sessionVersion
+    ? await database.query("update public.app_users set active=$1,session_version=case when $1=false then session_version+1 else session_version end where id=$2::uuid and role='advisor' returning username::text as usuario, active as activo",[body.active,userId])
+    : await database.query("update public.app_users set active=$1 where id=$2::uuid and role='advisor' returning username::text as usuario, active as activo",[body.active,userId]);
   if(!result.rowCount){sendJson(response,404,{ok:false,message:"No se encontró la cuenta del asesor."});return}
   await audit(request,readSession(request,'admin_session'),body.active?"ADVISOR_REACTIVATED":"ADVISOR_DEACTIVATED","account",userId,{username:result.rows[0].usuario});sendJson(response,200,{ok:true,user:result.rows[0]});
 }
