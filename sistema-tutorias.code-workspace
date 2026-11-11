@@ -1,9 +1,0 @@
-{
-  "folders": [{ "path": "." }],
-  "settings": {
-    "files.encoding": "utf8",
-    "editor.wordWrap": "on",
-    "editor.minimap.enabled": false,
-    "search.exclude": { "node_modules": true }
-  }
-}
