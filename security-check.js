@@ -28,4 +28,8 @@ assert(indexHtml.includes('src="/logo-bis-universities.png"'),"El Registro debe 
 assert(adminHtml.includes('src="/logo-bis-universities.png"'),"Administración debe usar la ruta pública estable del logotipo");
 assert(server.includes('"logo-bis-universities.png"'),"El servidor debe autorizar la entrega pública del logotipo");
 assert(server.includes('"logo-bis-universities.png"'),"El servidor debe publicar el logotipo desde la raíz");
+assert(adminHtml.includes('data-admin-view="resumen"'),"Inicio y Estadísticas deben compartir la misma vista");
+assert(admin.includes("function showAdminView("),"Administración debe cambiar de áreas sin desplazamiento por anclas");
+assert(!admin.includes("scrollIntoView"),"La navegación administrativa no debe desplazar la página como carrusel");
+assert(styles.includes("[data-admin-view][hidden]"),"Las áreas administrativas inactivas deben permanecer ocultas");
 console.log("Controles esenciales de seguridad: OK");

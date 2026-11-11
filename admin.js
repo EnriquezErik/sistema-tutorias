@@ -12,7 +12,7 @@ function adminUsers(){return centralAdminData?.users||[]}
 function allAdvisors(){return adminUsers().filter(user=>user.rol!=='admin'&&user.role!=='admin')}
 function registeredAdvisors(){return adminUsers().filter(user=>user.rol!=='admin'&&user.role!=='admin'&&user.activo!==false)}
 async function saveAdvisor(event){event?.preventDefault();const form=admin$('#add-asesores'),nameInput=admin$('#newAdvisorName'),userInput=admin$('#newAdvisorUser'),passwordInput=admin$('#newAdvisorPassword'),nombre=String(nameInput?.value||'').trim(),usuario=String(userInput?.value||'').trim(),password=String(passwordInput?.value||''),message=admin$('#advisorFormMessage');if(message){message.textContent='';message.className='advisor-form-message'}if(!nombre||!usuario||password.length<10){const missing=password.length<10?'una contraseña de al menos 10 caracteres':!nombre?'el nombre completo':'el usuario';if(message){message.textContent=`Falta capturar ${missing}.`;message.classList.add('error')}alert(`Falta capturar ${missing}.`);return}const button=admin$('#saveAdvisorBtn');if(button){button.disabled=true;button.textContent='Guardando...'}try{const response=await fetch('/api/admin/users',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({fullName:nombre,username:usuario,password})});const payload=await response.json();if(!response.ok){if(message){message.textContent=payload.message||'No fue posible agregar al asesor.';message.classList.add('error')}return}await loadAdminData();form?.reset();if(message){message.textContent=`Asesor ${nombre} agregado correctamente con el usuario ${usuario}.`;message.classList.add('success')}alert(`Asesor ${nombre} agregado correctamente. Ya puede iniciar sesión con el usuario ${usuario}.`)}catch(error){if(message){message.textContent='No fue posible comunicarse con el servidor.';message.classList.add('error')}}finally{if(button){button.disabled=false;button.textContent='Agregar asesor'}}}
-function schoolConfig(){const cfg=adminRead(ADMIN_KEYS.school,{schoolName:'NOMBRE DE LA INSTITUCIÓN',footer:'© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.',version:'1.7.0'});cfg.version='1.7.0';return cfg}
+function schoolConfig(){const cfg=adminRead(ADMIN_KEYS.school,{schoolName:'NOMBRE DE LA INSTITUCIÓN',footer:'© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.',version:'1.7.1'});cfg.version='1.7.1';return cfg}
 function catalogs(){const c=adminRead(ADMIN_KEYS.catalogs,defaultCatalogs);return {...defaultCatalogs,...c}}
 function periods(){if(centralAdminData?.periods?.length)return centralAdminData.periods.map(period=>period.name);const p=adminRead(ADMIN_KEYS.periods,[ADMIN_DEFAULT_PERIOD]);return Array.from(new Set(p.filter(Boolean)))}
 function activePeriodName(){return centralAdminData?.periods?.find(period=>period.active!==false)?.name||periods()[0]||ADMIN_DEFAULT_PERIOD}
@@ -106,7 +106,7 @@ async function loadAdminData(){
   centralAdminData={advisories:rows,students:d.students||[],users:d.users||[],periods:d.periodsAdmin||[],groups:d.groupsAdmin||[],catalogItems:d.catalogItems||{}};
   const cat={materias:(c.subjects||[]).map(x=>x.name),carreras:(c.careers||[]).map(x=>x.code),grupos:(c.groups||[]).map(x=>x.name),motivos:(c.reasons||[]).map(x=>x.name)};
   localStorage.setItem(ADMIN_KEYS.catalogs,JSON.stringify(cat));localStorage.setItem(ADMIN_KEYS.periods,JSON.stringify((d.periodsAdmin||c.periods||[]).map(x=>x.name)));
-  localStorage.setItem(ADMIN_KEYS.school,JSON.stringify({schoolName:c.school?.school_name||'NOMBRE DE LA INSTITUCIÓN',footer:c.school?.footer_text||'© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.',version:'1.7.0'}));
+  localStorage.setItem(ADMIN_KEYS.school,JSON.stringify({schoolName:c.school?.school_name||'NOMBRE DE LA INSTITUCIÓN',footer:c.school?.footer_text||'© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.',version:'1.7.1'}));
   const groupCareer=admin$('#newGroupCareer');if(groupCareer){const oldCareer=groupCareer.value;groupCareer.innerHTML='<option value="">Seleccione</option>'+(c.careers||[]).map(career=>`<option value="${escapeHTML(career.code)}">${escapeHTML(career.code)}</option>`).join('');if(Array.from(groupCareer.options).some(option=>option.value===oldCareer))groupCareer.value=oldCareer}
   if(payload.user){admin$('#adminCurrentUser').textContent='Administrador: '+payload.user.usuario;const account=centralAdminData.users.find(x=>x.usuario.toLowerCase()===payload.user.usuario.toLowerCase());admin$('#securityMsg').textContent=account&&!account.recuperacionConfigurada?'Importante: configure una clave de recuperación antes de cerrar la sesión.':''}
   applySchool();fillPeriodSelect('dashboardPeriod',false);if(!previousDashboardPeriod)admin$('#dashboardPeriod').value=activePeriodName();fillAdminFilters();renderAll();return true;
@@ -117,6 +117,16 @@ async function adminLogout(){try{await fetch('/api/admin/logout',{method:'POST'}
 async function recoverAdminAccess(){setAdminMessage('Verificando recuperación...');try{const response=await fetch('/api/admin/recover',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:admin$('#recoveryUser').value.trim(),recoveryCode:admin$('#recoveryCode').value,newPassword:admin$('#recoveryNewPassword').value})});const payload=await response.json();setAdminMessage(payload.message||'');if(response.ok){admin$('#adminRecoveryForm').hidden=true;admin$('#adminLoginForm').hidden=false;admin$('#adminLoginUser').value=admin$('#recoveryUser').value;admin$('#adminLoginPassword').value=''}}catch(error){setAdminMessage('No fue posible comunicarse con el servidor.')}}
 async function saveAdminSecurity(){const currentPassword=admin$('#currentAdminPassword').value,newPassword=admin$('#newAdminPassword').value,confirmPassword=admin$('#confirmAdminPassword').value,recoveryCode=admin$('#newRecoveryCode').value,msg=admin$('#securityMsg');if(newPassword!==confirmPassword){msg.textContent='Las contraseñas nuevas no coinciden.';return}msg.textContent='Guardando...';try{const response=await fetch('/api/admin/security',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({currentPassword,newPassword,recoveryCode})});const payload=await response.json();msg.textContent=payload.message||'';if(response.ok){['currentAdminPassword','newAdminPassword','confirmAdminPassword','newRecoveryCode'].forEach(id=>admin$(id).value='');await loadAdminData();msg.textContent=payload.message||'Seguridad actualizada.'}}catch(error){msg.textContent='No fue posible comunicarse con el servidor.'}}
 
+// NAVEGACIÓN ADMINISTRATIVA: presenta una sola área y mantiene Inicio y Estadísticas juntos.
+function adminViewGroup(target){return ['inicio','estadisticas','dashboard','alumnos-resumen'].includes(target)?'resumen':['reportes','catalogos','seguridad'].includes(target)?target:'resumen'}
+function showAdminView(target='inicio',updateAddress=true){
+  const requested=['inicio','estadisticas','reportes','catalogos','seguridad'].includes(target)?target:'inicio',group=adminViewGroup(requested);
+  document.querySelectorAll('[data-admin-view]').forEach(section=>{section.hidden=section.dataset.adminView!==group});
+  document.querySelectorAll('.admin-nav [data-admin-target]').forEach(link=>{const selected=link.dataset.adminTarget===requested;link.classList.toggle('admin-nav-active',selected);if(selected)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current')});
+  if(updateAddress)history.replaceState(null,'',`#${requested}`);
+  document.documentElement.scrollTop=0;document.body.scrollTop=0;window.scrollTo(0,0);
+}
+
 document.addEventListener('DOMContentLoaded',async()=>{
   admin$('#adminLoginBtn').addEventListener('click',adminLogin);admin$('#adminLoginPassword').addEventListener('keydown',e=>{if(e.key==='Enter')adminLogin()});
   admin$('#showRecoveryBtn').addEventListener('click',()=>{admin$('#adminLoginForm').hidden=true;admin$('#adminRecoveryForm').hidden=false;admin$('#recoveryUser').value=admin$('#adminLoginUser').value;setAdminMessage('')});
@@ -126,6 +136,9 @@ document.addEventListener('DOMContentLoaded',async()=>{
   if(!localStorage.getItem(ADMIN_KEYS.catalogs))adminWrite(ADMIN_KEYS.catalogs,defaultCatalogs);
   if(!localStorage.getItem(ADMIN_KEYS.periods))adminWrite(ADMIN_KEYS.periods,[ADMIN_DEFAULT_PERIOD]);
   applySchool();fillPeriodSelect('dashboardPeriod',false);fillAdminFilters();
+  const initialAdminTarget=location.hash.replace('#','');
+  showAdminView(initialAdminTarget==='dashboard'?'inicio':initialAdminTarget||'inicio',false);
+  document.querySelectorAll('.admin-nav [data-admin-target]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();showAdminView(link.dataset.adminTarget)}));
   const dashboardPeriod=admin$('#dashboardPeriod');
   dashboardPeriod.addEventListener('change',()=>{const p=dashboardPeriod.value;admin$('#adminPeriodFilter').value=p;renderAll()});
   const catalogNames={
@@ -143,7 +156,6 @@ document.addEventListener('DOMContentLoaded',async()=>{
     document.querySelectorAll('.admin-catalog-nav button').forEach(btn=>btn.classList.toggle('catalog-active',btn.dataset.target===target));
     const current=admin$('#catalogCurrent');
     if(current) current.innerHTML=`Catálogo seleccionado: <strong>${escapeHTML(catalogNames[target]||'')}</strong>`;
-    admin$(target)?.scrollIntoView({behavior:'smooth',block:'start'});
   }
   document.querySelectorAll('.admin-catalog-nav button').forEach(b=>b.addEventListener('click',()=>showCatalog(b.dataset.target)));
   document.querySelectorAll('[data-add]').forEach(b=>b.addEventListener('click',()=>{

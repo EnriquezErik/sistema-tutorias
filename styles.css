@@ -96,7 +96,7 @@ body.locked>:not(.login-screen):not(script){display:none!important}
 /* ===== Administración v15: catálogos funcionales ===== */
 .catalog-current{display:inline-block;margin:0 0 12px;padding:7px 10px;border:1px solid #dfe5e9;border-radius:7px;background:#f7f9fa;font-size:11px;color:#66737c}.catalog-current strong{color:#26343d}.catalog-panel.is-hidden{display:none!important}.admin-catalog-nav .catalog-active{background:#dfe7ec;border-color:#bfcbd2;box-shadow:inset 0 -2px 0 #52626d}.catalog-tabs{display:block}.catalog-tabs .catalog-panel{scroll-margin-top:15px}
 
-.admin-nav button{font-size:11px;font-weight:800;cursor:pointer}.admin-nav{align-items:center}
+.admin-nav button{font-size:11px;font-weight:800;cursor:pointer}.admin-nav{align-items:center}.admin-nav a.admin-nav-active{background:#1669a8;color:#fff;border-color:#1669a8;box-shadow:0 2px 5px #1669a826}[data-admin-view][hidden]{display:none!important}
 
 /* ===== Administración: barra de estadísticas ===== */
 .stats-toolbar{margin-bottom:8px;align-items:center}.stats-toolbar .primary{white-space:nowrap}

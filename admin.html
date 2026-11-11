@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Administración · Asesorías</title>
-<link rel="stylesheet" href="styles.css?v=1.7.0">
+<link rel="stylesheet" href="styles.css?v=1.7.1">
 </head>
 <body class="locked">
 <!-- Acceso y recuperación de la cuenta administradora. -->
@@ -34,12 +34,12 @@
 </header>
 
 <nav class="admin-nav" aria-label="Navegación administrativa">
-  <a href="#dashboard">Inicio</a><a href="#estadisticas">Estadísticas</a><a href="#reportes">Historial y reportes</a><a href="#catalogos">Catálogos</a><a href="#seguridad">Seguridad</a><button type="button" id="syncDataBtn" class="secondary">Actualizar datos</button>
+  <a href="#inicio" data-admin-target="inicio">Inicio</a><a href="#estadisticas" data-admin-target="estadisticas">Estadísticas</a><a href="#reportes" data-admin-target="reportes">Historial y reportes</a><a href="#catalogos" data-admin-target="catalogos">Catálogos</a><a href="#seguridad" data-admin-target="seguridad">Seguridad</a><button type="button" id="syncDataBtn" class="secondary">Actualizar datos</button>
 </nav>
 
 <main class="container admin-container">
 <!-- Inicio: indicadores generales del cuatrimestre seleccionado. -->
-  <section class="card admin-dashboard" id="dashboard">
+  <section class="card admin-dashboard" id="dashboard" data-admin-view="resumen">
     <div class="toolbar admin-dashboard-toolbar">
       <div><div class="section-title">Panel administrativo</div><div class="muted">Resumen del cuatrimestre seleccionado.</div></div>
       <div class="dashboard-actions"><label class="period-picker">Cuatrimestre consultado<select id="dashboardPeriod"></select></label><a class="button secondary" href="index.html">Ir a registro</a></div>
@@ -55,7 +55,7 @@
   </section>
 
 <!-- Estadísticas: tablas interpretables por materia, motivo, asesor, grupo y periodo. -->
-  <section class="card" id="estadisticas">
+  <section class="card" id="estadisticas" data-admin-view="resumen">
     <div class="toolbar stats-toolbar"><div><div class="section-title">Estadísticas</div></div><div class="report-actions"><button class="secondary" id="printStatsBtn">Imprimir estadísticas</button><button class="primary" id="exportStatsExcelBtn">Exportar a Excel</button></div></div>
     <div class="muted section-note">Resumen estadístico del cuatrimestre seleccionado. Las tablas conservan todos los indicadores y están disponibles para impresión y exportación a Excel.</div>
     <div class="admin-stats-grid">
@@ -71,7 +71,7 @@
   </section>
 
 <!-- Historial y reportes: filtros, tabla, exportación e impresión. -->
-  <section class="card" id="reportes">
+  <section class="card" id="reportes" data-admin-view="reportes" hidden>
     <div class="toolbar report-toolbar">
       <div><div class="section-title">Historial y reportes</div><div class="muted">Filtre las asesorías y después imprima o exporte únicamente los registros encontrados.</div></div>
       <div class="report-actions"><button class="secondary" id="printReportBtn">Imprimir reporte</button><button class="primary" id="exportExcelBtn">Exportar a Excel</button></div>
@@ -92,7 +92,7 @@
   </section>
 
 <!-- Catálogos administrativos: alumnos, asesores y listas de captura. -->
-  <section class="card" id="catalogos">
+  <section class="card" id="catalogos" data-admin-view="catalogos" hidden>
     <div class="section-title">Catálogos</div>
     <div class="muted catalog-intro">Alumnos y asesores se consultan desde PostgreSQL. La edición central de los demás catálogos se incorporará gradualmente.</div>
     <div class="catalog-current" id="catalogCurrent">Catálogo seleccionado: <strong>Alumnos</strong></div>
@@ -111,14 +111,14 @@
   </section>
 
 <!-- Resumen de asesorías y tiempo acumulado por alumno. -->
-  <section class="card student-bottom-card" id="alumnos-resumen">
+  <section class="card student-bottom-card" id="alumnos-resumen" data-admin-view="resumen">
     <div class="section-title">Tiempo recibido por alumno</div>
     <div class="muted section-note">Se muestran 10 alumnos a la vez; use el desplazamiento para consultar los demás.</div>
     <div class="table-wrap student-summary-wrap compact-table"><table><thead><tr><th>Matrícula</th><th>Alumno</th><th>Asesorías</th><th>Duración</th></tr></thead><tbody id="byStudent"></tbody></table></div>
   </section>
 
 <!-- Configuración de contraseña y recuperación de acceso. -->
-  <section class="card" id="seguridad">
+  <section class="card" id="seguridad" data-admin-view="seguridad" hidden>
     <div class="section-title">Seguridad de la cuenta administrativa</div>
     <div class="muted section-note">La contraseña es obligatoria. Configure también una clave de recuperación de al menos 10 caracteres y guárdela en un lugar seguro.</div>
     <div class="security-settings">
@@ -132,7 +132,7 @@
   </section>
 </main>
 
-<footer class="site-footer"><span id="adminFooterText">© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.</span><br><span id="adminVersion">Versión 1.7.0 · Administración</span></footer>
+<footer class="site-footer"><span id="adminFooterText">© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.</span><br><span id="adminVersion">Versión 1.7.1 · Administración</span></footer>
 <div id="adminPrintReport" class="print-only"></div>
-<script src="admin.js?v=1.7.0"></script>
+<script src="admin.js?v=1.7.1"></script>
 </body></html>

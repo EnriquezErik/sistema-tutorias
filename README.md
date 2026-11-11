@@ -2,6 +2,8 @@
 
 La v42 mantiene el registro de asesorías, catálogos, estadísticas, filtros, impresión y exportación. Incorpora protección visual y funcional de las pantallas de acceso, validación de sesiones y presentación institucional.
 
+La Administración utiliza navegación por vistas: Inicio y Estadísticas permanecen juntos; Historial y reportes, Catálogos y Seguridad se presentan por separado desde la parte superior, sin recorridos verticales entre áreas.
+
 Para orientarse entre archivos y funciones, consulte [`GUIA_DEL_CODIGO.md`](GUIA_DEL_CODIGO.md). Abra la carpeta raíz o `sistema-tutorias.code-workspace` en Visual Studio Code.
 
 El archivo `logo-bis-universities.png` debe permanecer en la carpeta raíz junto a `index.html`, `admin.html` y `server.js`. La aplicación utiliza una ruta pública absoluta para mostrarlo en los accesos, encabezados e impresiones de ambas páginas.
