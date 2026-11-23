@@ -286,6 +286,7 @@ async function apiAdminData(request, response) {
         join public.advisory_reasons r on r.id = a.reason_id
         join public.periods p on p.id = a.period_id
         join public.app_users u on u.id = a.advisor_id
+       where a.status <> 'CANCELADA'
        order by a.started_at desc
     `),
     database.query(`select s.enrollment::text as matricula, s.full_name as nombre, s.sex as sexo,
@@ -327,7 +328,7 @@ async function apiAdminAdvisoriesPage(request, response, requestUrl) {
   if (!await requireAdmin(request, response)) return;
   const limit = Math.max(1, positiveInteger(requestUrl.searchParams.get("limit"), 50, 200));
   const offset = positiveInteger(requestUrl.searchParams.get("offset"), 0, 1000000);
-  const filters = [], values = [];
+  const filters = ["a.status <> 'CANCELADA'"], values = [];
   const addFilter = (value, sql) => {
     const clean = String(value || "").trim();
     if (!clean || clean === "all") return;
@@ -391,7 +392,7 @@ async function apiAdminStatistics(request, response, requestUrl) {
   if (!await requireAdmin(request, response)) return;
   const period = String(requestUrl.searchParams.get("period") || "").trim();
   const values = period && period !== "all" ? [period] : [];
-  const where = values.length ? "where p.name=$1" : "";
+  const where = "where a.status <> 'CANCELADA'" + (values.length ? " and p.name=$1" : "");
   const base = `from public.advisories a join public.periods p on p.id=a.period_id`;
   const [summary, bySubject, byReason, byAdvisor, byGroup] = await Promise.all([
     database.query(`select count(*)::integer as sessions,count(distinct a.student_id)::integer as students,count(distinct a.advisor_id)::integer as advisors,coalesce(sum(a.duration_minutes),0)::integer as minutes,count(*) filter(where a.referred_to_psychopedagogy)::integer as referrals ${base} ${where}`, values),
@@ -596,7 +597,7 @@ async function apiListAdvisories(request, response, session) {
       join public.advisory_reasons r on r.id = a.reason_id
       join public.periods p on p.id = a.period_id
       join public.app_users u on u.id = a.advisor_id
-     where ($2::boolean or a.advisor_id = $1::uuid)
+     where ($2::boolean or a.advisor_id = $1::uuid) and a.status <> 'CANCELADA'
      order by a.started_at desc
   `, [session.id, session.rol === "admin"]);
   sendJson(response, 200, { ok: true, advisories: result.rows.map(advisoryRow) });
@@ -634,6 +635,8 @@ async function apiCreateAdvisory(request, response, session) {
   const client = await database.connect();
   try {
     await client.query("begin");
+    const existing = await client.query('select id from public.students where enrollment=$1',[data.enrollment]);
+    if (!existing.rowCount && body.nuevoCatalogo === true) await ensureStudentCatalog(client,data.career,data.group);
     const group = await client.query(`
       select g.id, c.id as career_id
         from public.student_groups g
@@ -689,6 +692,7 @@ async function apiCreateAdvisory(request, response, session) {
       returning id
     `, [student.rows[0].id, session.id, ids.subject_id, ids.reason_id, ids.period_id,
         data.comments, data.referred, data.startedAt.toISOString(), data.endedAt.toISOString(), duration]);
+    if(body.activeCorrection){const correction=body.activeCorrection;if(typeof correction.reason!=='string'||!correction.reason.trim()||correction.reason.length>500)throw Object.assign(new Error('invalid_correction'),{statusCode:400,publicMessage:'Indique el motivo del ajuste.'});await client.query('insert into public.audit_log(user_id,username,action,entity_type,entity_id,details) values($1,$2,$3,$4,$5,$6::jsonb)',[session.id,session.usuario,'ADVISORY_TIME_AT_CREATION','advisory',inserted.rows[0].id,JSON.stringify(correction)]);}
     await client.query("commit");
     await audit(request,session,"ADVISORY_CREATED","advisory",inserted.rows[0].id,{enrollment:data.enrollment,period:data.period});
     sendJson(response, 201, { ok: true, id: inserted.rows[0].id });
@@ -706,6 +710,49 @@ async function apiCreateAdvisory(request, response, session) {
   } finally {
     client.release();
   }
+}
+
+async function ensureStudentCatalog(client, career, group) {
+  await client.query('insert into public.careers(code,name) values($1,$1) on conflict(code) do nothing',[career]);
+  await client.query('insert into public.student_groups(name,career_id) select $2,id from public.careers where code=$1 and active=true on conflict(name) do nothing',[career,group]);
+}
+async function apiCorrectAdvisory(request,response,session,id) {
+  const body=await readJsonBody(request,32768).catch(()=>null);
+  const reason=String(body?.justificacion||'').trim();
+  if(!body || !reason || reason.length>500) return sendJson(response,400,{ok:false,message:'Indique un motivo de hasta 500 caracteres.'});
+  const client=await database.connect();
+  const fail=(message)=>{throw Object.assign(new Error(message),{statusCode:400})};
+  try {
+    await client.query('begin');
+    const result=await client.query(`select a.*,s.enrollment::text,s.full_name,s.sex,s.shift,c.code::text as career,g.name::text as group_name from public.advisories a join public.students s on s.id=a.student_id join public.careers c on c.id=s.career_id join public.student_groups g on g.id=s.group_id where a.id=$1 and ($2::boolean or a.advisor_id=$3) and a.status='FINALIZADA' for update of a`,[id,session.rol==='admin',session.id]);
+    const old=result.rows[0]; if(!old) fail('Registro no disponible o sin permiso.');
+    if(body.action==='cancel') await client.query("update public.advisories set status='CANCELADA' where id=$1",[id]);
+    else if(body.action==='time') {
+      const start=new Date(body.inicio),end=new Date(body.fin);
+      if(!Number.isFinite(+start)||!Number.isFinite(+end)||end<start||+end>Date.now()||end-start>43200000) fail('Horario inválido.');
+      const valid=await client.query(`select (($1::timestamptz at time zone i.timezone)::date between p.starts_on and p.ends_on) and (($2::timestamptz at time zone i.timezone)::date between p.starts_on and p.ends_on) as ok from public.periods p cross join public.institution_settings i where p.id=$3`,[start,end,old.period_id]);
+      if(!valid.rows[0]?.ok) fail('El horario debe pertenecer al cuatrimestre original.');
+      await client.query('update public.advisories set started_at=$2,ended_at=$3,duration_minutes=$4 where id=$1',[id,start,end,Math.round((end-start)/60000)]);
+    } else if(body.action==='edit') {
+      const fields=['matricula','nombre','sexo','carrera','grupo','turno','materia','motivo','comentarios'].map(k=>String(body[k]??'').trim());
+      const [enrollment,name,sex,career,group,shift,subject,motive,comments]=fields;
+      if(fields.slice(0,8).some(x=>!x||x==='Seleccione')||fields.some((x,i)=>x.length>[40,160,10,30,80,20,160,160,2000][i])||!['Hombre','Mujer'].includes(sex)||!['Matutino','Vespertino'].includes(shift)) fail('Datos inválidos.');
+      const cat=await client.query(`select g.id as gid,c.id as cid,(select id from public.subjects where name=$3) as sid,(select id from public.advisory_reasons where name=$4) as rid from public.student_groups g join public.careers c on c.id=g.career_id where c.code=$1 and g.name=$2`,[career,group,subject,motive]);
+      const x=cat.rows[0];if(!x?.sid||!x?.rid) fail('Revise carrera, grupo, materia y motivo.');
+      const target=await client.query('select * from public.students where enrollment=$1 for update',[enrollment]);
+      let student=target.rows[0];
+      if(student){if(student.full_name!==name||student.sex!==sex||student.shift!==shift||student.career_id!==x.cid||student.group_id!==x.gid){
+        if(student.id!==old.student_id) fail('La matrícula pertenece a otro alumno con datos distintos.');
+        const shared=await client.query('select 1 from public.advisories where student_id=$1 and id<>$2 limit 1',[student.id,id]);
+        if(shared.rowCount) fail('El alumno tiene otros registros. Solicite una corrección de datos maestros al administrador para proteger el historial.');
+        await client.query('update public.students set full_name=$2,sex=$3,shift=$4,career_id=$5,group_id=$6 where id=$1',[student.id,name,sex,shift,x.cid,x.gid]);
+      }}else{student=(await client.query('insert into public.students(enrollment,full_name,sex,career_id,group_id,shift) values($1,$2,$3,$4,$5,$6) returning id',[enrollment,name,sex,x.cid,x.gid,shift])).rows[0]}
+      await client.query('update public.advisories set student_id=$2,subject_id=$3,reason_id=$4,comments=$5,referred_to_psychopedagogy=$6 where id=$1',[id,student.id,x.sid,x.rid,comments,body.psico==='Sí']);
+    }else fail('Acción inválida.');
+    const after=(await client.query('select * from public.advisories where id=$1',[id])).rows[0];
+    await client.query('insert into public.audit_log(user_id,username,action,entity_type,entity_id,details) values($1,$2,$3,$4,$5,$6::jsonb)',[session.id,session.usuario,'ADVISORY_'+body.action.toUpperCase(),'advisory',id,JSON.stringify({reason,before:old,after,changes:body})]);
+    await client.query('commit');sendJson(response,200,{ok:true});
+  }catch(error){await client.query('rollback');if(error.statusCode===400)sendJson(response,400,{ok:false,message:error.message});else throw error;}finally{client.release()}
 }
 
 // SALUD DE BASE DE DATOS: comprueba la conexión y construye el estado del servicio.
@@ -894,6 +941,15 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  const correctionMatch=requestUrl.pathname.match(/^\/api\/advisories\/([0-9a-f-]{36})$/i);
+  if(correctionMatch){
+    if(request.method!=='PATCH') return sendJson(response,405,{ok:false});
+    if(!database) return sendJson(response,503,{ok:false});
+    const advisor=readSession(request),admin=readSession(request,'admin_session');
+    const session=await isActiveAdvisorSession(advisor)?advisor:await isActiveAdminSession(admin)?admin:null;
+    if(!session)return sendJson(response,403,{ok:false});
+    try{await apiCorrectAdvisory(request,response,session,correctionMatch[1]);}catch(error){console.error('Corrección:',error.message);sendJson(response,503,{ok:false,message:'No se pudo guardar la corrección.'})}return;
+  }
   if (requestUrl.pathname === "/api/advisories") {
     if (!database) { sendJson(response, 503, { ok: false, code: "database_not_configured" }); return; }
     const session = requireSession(request, response);
