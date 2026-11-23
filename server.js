@@ -88,7 +88,13 @@ function setSecurityHeaders(response) {
   if (TRUST_PROXY_HTTPS) response.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
 }
 
-function requestIp(request) { return String(request.headers["x-forwarded-for"] || request.socket.remoteAddress || "unknown").split(",")[0].trim(); }
+function requestIp(request) {
+  // Solo confiar en el proxy frontal cuando se ha configurado explícitamente.
+  const forwarded = process.env.TRUST_PROXY === 'true' ? request.headers['x-forwarded-for'] : null;
+  const candidate = String(forwarded || request.socket.remoteAddress || '').split(',')[0].trim();
+  const normalized = candidate.startsWith('::ffff:') ? candidate.slice(7) : candidate;
+  return require('net').isIP(normalized) ? normalized : '127.0.0.1';
+}
 function sameOrigin(request) {
   const origin = request.headers.origin;
   if (!origin) return true;
@@ -119,7 +125,7 @@ function parseCookies(request) {
     if (separator < 0) continue;
     const key = part.slice(0, separator).trim();
     const value = part.slice(separator + 1).trim();
-    if (key) cookies[key] = decodeURIComponent(value);
+    if (key) { try { cookies[key] = decodeURIComponent(value); } catch (_) { /* Cookie dañada: ignorar sin derribar la solicitud. */ } }
   }
   return cookies;
 }
@@ -140,15 +146,17 @@ function signSession(user) {
 function readSession(request, cookieName = "advisor_session") {
   const token = parseCookies(request)[cookieName];
   if (!token) return null;
-  const [payload, signature] = token.split(".");
-  if (!payload || !signature) return null;
+  const parts = token.split(".");
+  if (parts.length !== 2) return null;
+  const [payload, signature] = parts;
+  if (!/^[A-Za-z0-9_-]{1,4096}$/.test(payload) || !/^[A-Za-z0-9_-]{43}$/.test(signature)) return null;
   const expected = crypto.createHmac("sha256", effectiveSessionSecret).update(payload).digest("base64url");
   const actualBuffer = Buffer.from(signature);
   const expectedBuffer = Buffer.from(expected);
   if (actualBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(actualBuffer, expectedBuffer)) return null;
   try {
     const session = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
-    return session.exp > Date.now() ? session : null;
+    return session && typeof session === "object" && typeof session.id === "string" && ["admin","advisor"].includes(session.rol) && Number.isFinite(session.exp) && session.exp > Date.now() ? session : null;
   } catch (error) {
     return null;
   }
@@ -168,8 +176,9 @@ function readJsonBody(request, limit = 16384) {
     let body = "",settled=false;
     request.setEncoding("utf8");
     request.on("data", chunk => {
+      if (settled) return;
       body += chunk;
-      if(!settled&&Buffer.byteLength(body)>limit){settled=true;reject(new Error("payload_too_large"));}
+      if(Buffer.byteLength(body)>limit){settled=true;body="";reject(new Error("payload_too_large"));}
     });
     request.on("end", () => {
       if(settled)return;settled=true;try { resolve(body ? JSON.parse(body) : {}); }
@@ -306,8 +315,11 @@ async function apiAdminData(request, response) {
 // CONSULTAS ESCALABLES: servicios opcionales para reportes paginados y estadísticas agregadas.
 // La respuesta histórica de /api/admin/data se conserva para no alterar la interfaz estable.
 function positiveInteger(value, fallback, maximum) {
-  const parsed = Number.parseInt(String(value || ""), 10);
-  if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+  if (value === null || value === undefined || value === "") return fallback;
+  const raw = String(value).trim();
+  if (!/^\d{1,10}$/.test(raw)) return fallback;
+  const parsed = Number(raw);
+  if (!Number.isSafeInteger(parsed)) return fallback;
   return Math.min(parsed, maximum);
 }
 
@@ -353,7 +365,25 @@ async function apiAdminAdvisoriesPage(request, response, requestUrl) {
      order by a.started_at desc, a.id desc
      limit $${values.length - 1} offset $${values.length}
   `, values);
-  const total = result.rows[0]?.total_count || 0;
+  // count(*) over() no devuelve filas cuando offset supera el último registro.
+  // Una consulta COUNT separada solo en esa situación conserva el total real.
+  let total = result.rows[0]?.total_count;
+  if (total === undefined) {
+    const countValues = values.slice(0, -2);
+    const countResult = await database.query(`
+      select count(*)::integer as total
+        from public.advisories a
+        join public.students s on s.id=a.student_id
+        join public.careers c on c.id=s.career_id
+        join public.student_groups g on g.id=s.group_id
+        join public.subjects sub on sub.id=a.subject_id
+        join public.advisory_reasons r on r.id=a.reason_id
+        join public.periods p on p.id=a.period_id
+        join public.app_users u on u.id=a.advisor_id
+        ${where}
+    `, countValues);
+    total = countResult.rows[0]?.total || 0;
+  }
   sendJson(response, 200, { ok:true, page:{limit,offset,total,hasMore:offset + result.rows.length < total}, advisories:result.rows.map(advisoryRow) });
 }
 
@@ -685,9 +715,7 @@ async function databaseHealth() {
       statusCode: 503,
       body: {
         ok: false,
-        app: "sistema-tutorias",
-        database: "not_configured",
-        message: "Falta configurar DATABASE_URL en Render."
+        status: "unavailable"
       }
     };
   }
@@ -698,8 +726,7 @@ async function databaseHealth() {
       statusCode: 200,
       body: {
         ok: true,
-        app: "sistema-tutorias",
-        database: "connected"
+        status: "ok"
       }
     };
   } catch (error) {
@@ -708,9 +735,7 @@ async function databaseHealth() {
       statusCode: 503,
       body: {
         ok: false,
-        app: "sistema-tutorias",
-        database: "connection_failed",
-        message: "No fue posible conectar con PostgreSQL. Revise DATABASE_URL."
+        status: "unavailable"
       }
     };
   }
@@ -719,7 +744,9 @@ async function databaseHealth() {
 // ENRUTADOR HTTP: dirige cada método y URL a su función/API o entrega los archivos web.
 const server = http.createServer(async (request, response) => {
   setSecurityHeaders(response);
-  const requestUrl = new URL(request.url, "http://localhost");
+  let requestUrl;
+  try { requestUrl = new URL(request.url, "http://localhost"); }
+  catch (_) { sendJson(response, 400, {ok:false,code:'invalid_url'}); return; }
   if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method) && !sameOrigin(request)) {
     sendJson(response,403,{ok:false,code:"invalid_origin",message:"Solicitud bloqueada por seguridad."}); return;
   }
