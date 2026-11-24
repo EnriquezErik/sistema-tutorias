@@ -583,7 +583,9 @@ function advisoryRow(row) {
 }
 
 async function apiFindStudent(request, response, enrollment) {
-  if (!requireSession(request, response)) return;
+  const session = requireSession(request, response);
+  if (!session) return;
+  if (!await isActiveAdvisorSession(session)) return sendJson(response,403,{ok:false,code:"inactive_account"});
   const result = await database.query(`
     select s.enrollment::text, s.full_name, s.sex, s.shift,
            c.code::text as career, g.name::text as group_name,
@@ -633,7 +635,7 @@ async function apiDraft(request,response,session){
   const b=await readJsonBody(request,32768).catch(()=>null);
   if(!b||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(b.operationId||'')||(request.method==='PUT'&&(!Number.isFinite(Date.parse(b.start))||!b.fields||typeof b.fields!=='object')))return sendJson(response,400,{ok:false});
   const fields={};for(const k of ['matricula','nombre','sexo','carrera','grupo','turno','materia','motivo','psico','comentarios'])fields[k]=String(b.fields?.[k]||'').slice(0,2000);
-  const payload={operationId:b.operationId,start:b.start,fields,newStudent:!!b.newStudent,manualCatalogUsed:!!b.manualCatalogUsed,activeCorrection:b.activeCorrection||null,manualEnd:b.manualEnd||null,period:b.period||null,periodId:b.periodId||null};
+  const payload={operationId:b.operationId,start:b.start,fields,newStudent:!!b.newStudent,manualCatalogUsed:!!b.manualCatalogUsed,newSubject:!!b.newSubject,activeCorrection:b.activeCorrection||null,manualEnd:b.manualEnd||null,period:b.period||null,periodId:b.periodId||null};
   const c=await database.connect();try{await c.query('begin');await c.query('select pg_advisory_xact_lock(hashtextextended($1,0))',[session.id+':draft']);
     const done=await c.query('select id from public.advisories where advisor_id=$1 and operation_id=$2',[session.id,b.operationId]);
     if(done.rows.length){await c.query('commit');return sendJson(response,200,{ok:true,completed:true});}
@@ -663,6 +665,18 @@ async function ensureAdvisorySubject(client,session,name){
   if(inserted.rows[0])await client.query('insert into public.audit_log(user_id,username,action,entity_type,entity_id,details) values($1,$2,$3,$4,$5,$6::jsonb)',[session.id,session.usuario,'CATALOG_CREATED','materias',inserted.rows[0].id,JSON.stringify({name})]);
   const verified=await client.query('select id from public.subjects where name=$1 and active=true',[name]);
   if(!verified.rowCount)throw Object.assign(new Error('inactive_subject'),{statusCode:400,publicMessage:'La materia no está activa.'});
+}
+
+function matchesFinalDraft(payload, body) {
+  if (!payload || !payload.fields || !payload.manualEnd) return false;
+  const keys=['matricula','nombre','sexo','carrera','grupo','turno','materia','motivo','psico','comentarios'];
+  const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
+  return keys.every(k=>String(payload.fields[k]??'').trim()===String(body[k]??'').trim()) &&
+    Number.isFinite(Date.parse(payload.start)) && Date.parse(payload.start)===Date.parse(body.inicio) &&
+    Number.isFinite(Date.parse(payload.manualEnd)) && Date.parse(payload.manualEnd)===Date.parse(body.fin) &&
+    payload.periodId===body.periodId && payload.period===body.periodo &&
+    !!payload.manualCatalogUsed===(body.nuevoCatalogo===true) && !!payload.newSubject===(body.nuevaMateria===true) &&
+    JSON.stringify(canonical(payload.activeCorrection||null))===JSON.stringify(canonical(body.activeCorrection||null));
 }
 
 async function apiCreateAdvisory(request, response, session) {
@@ -706,7 +720,7 @@ async function apiCreateAdvisory(request, response, session) {
   if(data.enrollment.length>40||data.fullName.length>160||data.career.length>30||data.group.length>80||data.subject.length>160||data.reason.length>160||data.period.length>160||data.comments.length>2000){await client.query("rollback");sendJson(response,400,{ok:false,code:"invalid_length",message:"Uno o más datos exceden la longitud permitida."});return}
 
     const draft=(await client.query('select payload,revision,operation_id from public.advisory_drafts where advisor_id=$1',[session.id])).rows[0];
-    if(draft&&(draft.operation_id!==operationId||Number(draft.revision)!==Number(body.revision||0)))throw Object.assign(new Error('draft_conflict'),{statusCode:400,publicMessage:'El borrador cambió en otro dispositivo. Recargue antes de guardar.'});
+    if(!draft||draft.operation_id!==operationId||!Number.isSafeInteger(body.revision)||Number(draft.revision)!==body.revision||!matchesFinalDraft(draft.payload,body))throw Object.assign(new Error('draft_conflict'),{statusCode:400,publicMessage:'No existe un respaldo confirmado que coincida con la asesoría. Respalde los datos o recargue antes de guardar.'});
     if((await client.query("select 1 from public.audit_log where user_id=$1 and action='DRAFT_DISCARDED' and entity_id=$2",[session.id,operationId])).rowCount)throw Object.assign(new Error('discarded'),{statusCode:400,publicMessage:'El borrador fue descartado.'});
     const periodId=draft?.payload.periodId||body.periodId||null;
     if (body.nuevoCatalogo === true) await ensureStudentCatalog(client,data.career,data.group);
@@ -894,7 +908,7 @@ async function databaseHealth() {
 }
 
 // ENRUTADOR HTTP: dirige cada método y URL a su función/API o entrega los archivos web.
-const server = http.createServer(async (request, response) => {
+async function handleRequest(request, response) {
   setSecurityHeaders(response);
   let requestUrl;
   try { requestUrl = new URL(request.url, "http://localhost"); }
@@ -1124,6 +1138,14 @@ const server = http.createServer(async (request, response) => {
     }
 
     fs.createReadStream(filePath).pipe(response);
+  });
+}
+const server = http.createServer((request,response)=>{
+  handleRequest(request,response).catch(error=>{
+    console.error('Error de solicitud:',error.message);
+    if(response.writableEnded)return;
+    if(response.headersSent){response.destroy();return;}
+    sendJson(response,503,{ok:false,code:'service_unavailable'});
   });
 });
 

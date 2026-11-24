@@ -324,3 +324,5 @@ input,select,textarea,button{min-width:0;max-width:100%}
 @media screen and (max-width:1000px){
  .topbar:not(.admin-topbar)>.logo.logo-right:not(.logo-left){display:flex}
 }
+
+@media print{.print-logo-right{border:0}.print-statistics-document .print-logo-right{width:82px;height:32px;margin:0 0 4px}}

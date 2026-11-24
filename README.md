@@ -63,3 +63,6 @@ Consultar RELEASE_NOTES_v1.7.37.md y PRUEBAS_v1.7.37.txt. La carga administrativ
 
 ## v1.7.38
 Corrección visual IEHL; ver RELEASE_NOTES_v1.7.38.md y PRUEBAS_v1.7.38.txt.
+
+## v1.7.39
+Candidata de correcciones prioritarias; ver RELEASE_NOTES_v1.7.39.md y PRUEBAS_v1.7.39.txt. Mantener v1.7.38 como respaldo operativo. Configuración TLS de Render documentada en docs/RESPALDO_Y_RECUPERACION.md.

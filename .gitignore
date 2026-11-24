@@ -1,0 +1,14 @@
+node_modules/
+.env
+.env.*
+!.env.example
+*.log
+coverage/
+.DS_Store
+*.pem
+*.key
+*.p12
+*.pfx
+backups/
+*.dump
+*.backup
