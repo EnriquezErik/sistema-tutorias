@@ -24,3 +24,6 @@ Candidata de correcciones prioritarias; pendiente validación de integración, c
 
 ## v1.7.40
 Candidata parcial; consultar RELEASE_NOTES_v1.7.40.md y PRUEBAS_v1.7.40.txt. No autorizada para producción.
+
+## v1.7.41
+Candidata de corrección de arranque; pendiente de validación en Render.

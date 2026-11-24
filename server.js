@@ -7,7 +7,6 @@ const { Pool } = require("pg");
 const bcrypt = require("bcryptjs");
 const {positiveInteger}=require("./lib/pagination");
 const {resolveDraftPeriod}=require("./lib/draft-period");
-const {writeJson}=require("./lib/http-response");
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = __dirname;
@@ -75,7 +74,13 @@ function resolveRequestPath(requestUrl) {
 }
 
 function sendJson(response, statusCode, body, headOnly = false) {
-  return writeJson(response,statusCode,body,headOnly);
+  const payload = JSON.stringify(body);
+  response.writeHead(statusCode, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'Content-Length': Buffer.byteLength(payload)
+  });
+  response.end(headOnly ? undefined : payload);
 }
 
 // PROTECCIONES HTTP: encabezados, origen de solicitudes, límite de intentos y bitácora.
