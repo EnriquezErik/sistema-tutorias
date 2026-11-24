@@ -15,3 +15,6 @@ Candidata parcial; sin autorización de producción. Carga administrativa consis
 
 ## v1.7.37
 Candidata parcial; consultar RELEASE_NOTES_v1.7.37.md. No autorizada para producción.
+
+## v1.7.38
+Actualización visual; validación en producción pendiente.

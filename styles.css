@@ -299,3 +299,28 @@ input,select,textarea,button{min-width:0;max-width:100%}
 
 #bitacora .table-wrap{max-height:560px;overflow:auto}#bitacora td{vertical-align:top}#bitacora pre{max-width:420px;max-height:320px;overflow:auto;font-size:12px}#restoreDialog{width:min(520px,92vw);border:1px solid #dbe1e5;border-radius:12px;padding:20px}#restoreDialog::backdrop{background:#182b3b88}#restoreDialog textarea{width:100%;min-height:90px}
 @media print{#bitacora,#restoreDialog{display:none!important}}
+
+/* IEHL: encabezados adaptables sin ocultar el logotipo. */
+@media screen {
+ .topbar:not(.admin-topbar){grid-template-columns:minmax(0,250px) minmax(0,1fr) minmax(0,180px)}
+ .topbar .logo-right{display:flex;width:clamp(100px,13vw,180px);height:auto;min-width:0;justify-self:end;margin:0;border:0}
+ .topbar .logo-right img{width:100%;height:auto;object-fit:contain}
+ .admin-topbar{grid-template-columns:minmax(0,250px) minmax(0,1fr) minmax(0,340px)}
+ .admin-head-actions{flex-wrap:wrap;min-width:0}
+ .admin-head-actions .logo-right{flex:0 0 auto;margin:0}
+ .admin-head-actions #adminCurrentUser{white-space:normal;overflow-wrap:anywhere}
+}
+@media screen and (max-width:1000px){
+ .topbar:not(.admin-topbar){grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+ .topbar:not(.admin-topbar)>.logo-left{grid-row:1;grid-column:1;width:min(100%,220px);height:auto;justify-self:center}
+ .topbar:not(.admin-topbar)>.logo-right{display:flex;grid-row:1;grid-column:2;justify-self:center;width:min(100%,150px)}
+ .topbar:not(.admin-topbar)>.school{grid-row:2;grid-column:1/-1}
+ .admin-topbar{grid-template-columns:minmax(0,1fr);grid-template-areas:"brand" "school" "actions";justify-items:center;gap:10px}
+ .admin-topbar>.logo-left{grid-area:brand;width:min(100%,250px);height:auto;justify-self:center}
+ .admin-topbar>.school{grid-area:school}
+ .admin-topbar>.admin-head-actions{grid-area:actions;justify-content:center;width:100%;flex-wrap:wrap}
+ .admin-topbar .admin-head-actions .logo-right{display:flex;width:min(40vw,150px)}
+}
+@media screen and (max-width:1000px){
+ .topbar:not(.admin-topbar)>.logo.logo-right:not(.logo-left){display:flex}
+}

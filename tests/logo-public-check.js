@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+const s=fs.readFileSync('server.js','utf8');
+const allow=s.match(/const PUBLIC_FILES = new Set\([^\n]+\);/)[0];
+const resolver=s.slice(s.indexOf('function resolveRequestPath('),s.indexOf('function sendJson('));
+const ctx={URL,path,PUBLIC_DIR:process.cwd()};vm.createContext(ctx);vm.runInContext(allow+'\n'+resolver,ctx);
+assert.equal(ctx.resolveRequestPath('/logo-iehl.jpg'),path.resolve('logo-iehl.jpg'));
+assert.equal(ctx.resolveRequestPath('/server.js'),null);
+assert.equal(ctx.resolveRequestPath('/.env'),null);
+const jpg=fs.readFileSync('logo-iehl.jpg');assert.equal(jpg.readUInt16BE(0),0xffd8);
+for(const f of ['index.html','admin.html'])assert(fs.readFileSync(f,'utf8').includes('src="/logo-iehl.jpg"'));
+console.log('IEHL: archivo, rutas y lista pública: OK');
