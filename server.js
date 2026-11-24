@@ -7,6 +7,7 @@ const { Pool } = require("pg");
 const bcrypt = require("bcryptjs");
 const {positiveInteger}=require("./lib/pagination");
 const {resolveDraftPeriod}=require("./lib/draft-period");
+const {writeJson}=require("./lib/http-response");
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = __dirname;
@@ -74,13 +75,7 @@ function resolveRequestPath(requestUrl) {
 }
 
 function sendJson(response, statusCode, body, headOnly = false) {
-  const payload = JSON.stringify(body, null, 2);
-  response.writeHead(statusCode, {
-    "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "no-store",
-    "Content-Length": Buffer.byteLength(payload)
-  });
-  response.end(headOnly ? undefined : payload);
+  return writeJson(response,statusCode,body,headOnly);
 }
 
 // PROTECCIONES HTTP: encabezados, origen de solicitudes, límite de intentos y bitácora.
@@ -276,6 +271,7 @@ async function apiAdminData(request, response) {
   if (!await requireAdmin(request, response)) return;
   const session = readSession(request, "admin_session");
   const client = await database.connect();
+  const periodFilter = new URL(request.url, "http://localhost").searchParams.get("period");
   try {
   await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
   const [advisories, students, users, bootstrap, periodsAdmin, groupsAdmin, careersAdmin, subjectsAdmin, reasonsAdmin] = await Promise.all([
@@ -295,8 +291,9 @@ async function apiAdminData(request, response) {
         join public.periods p on p.id = a.period_id
         join public.app_users u on u.id = a.advisor_id
        where a.status <> 'CANCELADA'
+         and ($1::text is null or p.name=$1)
        order by a.created_at desc, a.id desc
-    `)),
+    `, [periodFilter && periodFilter !== 'all' ? periodFilter : null])),
     client.query(`select s.enrollment::text as matricula, s.full_name as nombre, s.sex as sexo,
                            c.code::text as carrera, g.name::text as grupo, s.shift as turno
                       from public.students s join public.careers c on c.id=s.career_id
@@ -353,6 +350,7 @@ async function apiAdminAdvisoriesPage(request, response, requestUrl) {
   }
   const cursor=requestUrl.searchParams.get('cursor');
   if(cursor && offset) return sendJson(response,400,{ok:false,code:'mixed_pagination'});
+  if(cursor && !requestUrl.searchParams.get('cutoff'))return sendJson(response,400,{ok:false,code:'cutoff_required'});
   const cutoff=requestUrl.searchParams.get('cutoff')||new Date().toISOString();
   if(!Number.isFinite(Date.parse(cutoff)))return sendJson(response,400,{ok:false});
   {values.push(cutoff);filters.push(`a.created_at <= $${values.length}::timestamptz`);}
@@ -360,7 +358,10 @@ async function apiAdminAdvisoriesPage(request, response, requestUrl) {
   const countRequested=requestUrl.searchParams.get("count")!=="0";
   values.push(limit+(countRequested?0:1), offset);
   const where = filters.length ? `where ${filters.join(" and ")}` : "";
-  const result = await database.query(`
+  const client = await database.connect();
+  try {
+  await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+  const result = await client.query(`
     select a.id, s.enrollment::text, coalesce(a.student_snapshot->>'name',s.full_name) as student_name, coalesce(a.student_snapshot->>'sex',s.sex) as sex, coalesce(a.student_snapshot->>'shift',s.shift) as shift,
            coalesce(a.student_snapshot->>'career',c.code::text) as career_code, coalesce(a.student_snapshot->>'group',g.name::text) as group_name,
            sub.name::text as subject_name, r.name::text as reason_name,
@@ -384,7 +385,7 @@ async function apiAdminAdvisoriesPage(request, response, requestUrl) {
   let total = result.rows[0]?.total_count;
   if (countRequested && total === undefined) {
     const countValues = values.slice(0, -2);
-    const countResult = await database.query(`
+    const countResult = await client.query(`
       select count(*)::integer as total
         from public.advisories a
         join public.students s on s.id=a.student_id
@@ -400,7 +401,9 @@ async function apiAdminAdvisoriesPage(request, response, requestUrl) {
   }
   const hasMore=countRequested?offset+result.rows.length<total:result.rows.length>limit;
   if(!countRequested)result.rows=result.rows.slice(0,limit);
+  await client.query("COMMIT");
   sendJson(response, 200, { ok:true, page:{limit,offset,total,cutoff,nextCursor:result.rows.length?result.rows.at(-1).cursor_time+'|'+result.rows.at(-1).id:null,hasMore}, advisories:result.rows.map(advisoryRow) });
+  } catch(error) { try { await client.query("ROLLBACK"); } catch (_) {} throw error; } finally { client.release(); }
 }
 
 async function apiAdminStatistics(request, response, requestUrl) {

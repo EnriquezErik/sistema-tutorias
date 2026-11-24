@@ -66,3 +66,6 @@ Corrección visual IEHL; ver RELEASE_NOTES_v1.7.38.md y PRUEBAS_v1.7.38.txt.
 
 ## v1.7.39
 Candidata de correcciones prioritarias; ver RELEASE_NOTES_v1.7.39.md y PRUEBAS_v1.7.39.txt. Mantener v1.7.38 como respaldo operativo. Configuración TLS de Render documentada en docs/RESPALDO_Y_RECUPERACION.md.
+
+## v1.7.40
+Candidata parcial; consultar RELEASE_NOTES_v1.7.40.md y PRUEBAS_v1.7.40.txt. No autorizada para producción.

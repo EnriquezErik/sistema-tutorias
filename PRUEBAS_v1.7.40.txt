@@ -1,0 +1,34 @@
+
+> sistema-tutorias@1.7.40 test
+> node --check server.js && node --check app.js && node --check admin.js && node tests/security-check.js && node tests/responsive-check.js && node tests/audit-regression-check.js && node tests/phase2-check.js && node tests/phase2-growth-check.js && node tests/phase3-integration-check.js && node tests/schema-compatibility-check.js && node tests/migration-layout-check.js && node tests/xlsx-export-check.js && node tests/phase2-hardening-check.js && node tests/manual-registration-check.js && node tests/subject-autofill-check.js && node tests/time-correction-check.js && node tests/idempotency-check.js && node tests/draft-pagination-check.js && node tests/audit-restore-check.js && node tests/student-file-check.js && node tests/indicators-check.js && node tests/comparison-check.js && node tests/release-package-check.js && node tests/render-runtime-check.js && node tests/retry-runtime-check.js && node tests/stabilization-check.js && node tests/period-time-runtime-check.js && node tests/admin-snapshot-check.js && node tests/draft-sync-runtime-check.js && node tests/logo-public-check.js && node tests/priority-runtime-check.js && node tests/optimization-runtime-check.js
+
+Controles esenciales de seguridad: OK
+Estructura adaptable de Registro y Administración: OK
+Correcciones derivadas de auditoría: OK
+Controles de fase 2 bloque 1: OK
+Crecimiento y consultas de fase 2: OK
+Integridad técnica automatizada de fase 3: OK
+Compatibilidad con la base existente: OK
+Ubicación y secuencia de migraciones: OK (comprobación estática; no ejecuta SQL).
+Exportaciones XLSX estándar de Administración: OK
+Endurecimiento incremental v1.7.40: OK
+Inicio sin datos y validación al finalizar: OK (simulación JS); historial: comprobación estática.
+Materia automática: simulación JS y revisión estática SQL OK
+Corrección de horario: casos de regresión aprobados
+Reintento: simulación del servidor y comprobaciones estáticas OK
+Borrador GET simulado y paginación: controles estáticos OK
+Bitácora y restauración: simulación de permisos, transacción, rollback y paginación OK
+Expediente: simulación de matrícula exacta, periodos y exclusión de anuladas; alta materia: revisión estática OK
+Indicadores: cálculo, filtros, recurrencia, canalizaciones, exclusión y estructura OK
+Comparación: periodos, diferencias, base cero, anulaciones y estructura OK
+Paquete institucional: OK
+Renderización real de indicadores y comparación con DOM simulado: OK
+Reintento completado antes de validar formulario: OK
+Filtro institucional y paginación sin conteo: OK (simulación)
+Periodo histórico, ambigüedad, horario institucional y comparación de borradores: OK (simulación)
+Snapshot administrativo: carga obsoleta, salida y respuesta incompleta (simulados) OK
+Snapshot administrativo: transacción, datos completos, rollback y liberación (simulados) OK
+Respaldo obligatorio antes de finalizar y cancelación de solicitudes: OK (simulación)
+IEHL: archivo, rutas y lista pública: OK
+Prioridades: coincidencia de respaldo, sesión activa, cierre seguro y fechas (simulación): OK
+JSON compacto, paginación transaccional, rollback y corte obligatorio: OK (simulación)

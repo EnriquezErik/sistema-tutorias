@@ -21,3 +21,6 @@ Actualización visual; validación en producción pendiente.
 
 ## v1.7.39
 Candidata de correcciones prioritarias; pendiente validación de integración, concurrencia y autorización institucional. v1.7.38 permanece como respaldo operativo congelado.
+
+## v1.7.40
+Candidata parcial; consultar RELEASE_NOTES_v1.7.40.md y PRUEBAS_v1.7.40.txt. No autorizada para producción.
