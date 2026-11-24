@@ -7,5 +7,5 @@ assert(server.includes('const countValues = values.slice(0, -2);'), 'El total de
 assert(server.includes('total = countResult.rows[0]?.total || 0;'), 'El total no debe convertirse en cero al superar la última página');
 assert(!server.includes('Falta configurar DATABASE_URL en Render.'), 'La ruta pública no debe divulgar configuración');
 assert(!server.includes('Revise DATABASE_URL.'), 'La ruta pública no debe divulgar variables privadas');
-assert(admin.includes("version:'1.7.16'"), 'La versión visible debe coincidir con la versión técnica');
-console.log('Endurecimiento incremental v1.7.16: OK');
+assert(admin.includes("version:'1.7.19'"), 'La versión visible debe coincidir con la versión técnica');
+console.log('Endurecimiento incremental v1.7.19: OK');

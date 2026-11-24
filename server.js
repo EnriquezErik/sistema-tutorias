@@ -272,8 +272,8 @@ async function apiAdminData(request, response) {
   const session = readSession(request, "admin_session");
   const [advisories, students, users, bootstrap, periodsAdmin, groupsAdmin, careersAdmin, subjectsAdmin, reasonsAdmin] = await Promise.all([
     database.query(`
-      select a.id, s.enrollment::text, s.full_name as student_name, s.sex, s.shift,
-             c.code::text as career_code, g.name::text as group_name,
+      select a.id, s.enrollment::text, coalesce(a.student_snapshot->>'name',s.full_name) as student_name, coalesce(a.student_snapshot->>'sex',s.sex) as sex, coalesce(a.student_snapshot->>'shift',s.shift) as shift,
+             coalesce(a.student_snapshot->>'career',c.code::text) as career_code, coalesce(a.student_snapshot->>'group',g.name::text) as group_name,
              sub.name::text as subject_name, r.name::text as reason_name,
              p.name as period_name, u.username::text as advisor_username,
              a.comments, a.referred_to_psychopedagogy, a.started_at, a.ended_at,
@@ -336,20 +336,20 @@ async function apiAdminAdvisoriesPage(request, response, requestUrl) {
   };
   addFilter(requestUrl.searchParams.get("period"), "p.name = ?");
   addFilter(requestUrl.searchParams.get("advisor"), "u.username::text = ?");
-  addFilter(requestUrl.searchParams.get("career"), "c.code::text = ?");
-  addFilter(requestUrl.searchParams.get("group"), "g.name::text = ?");
+  addFilter(requestUrl.searchParams.get("career"), "coalesce(a.student_snapshot->>'career',c.code::text) = ?");
+  addFilter(requestUrl.searchParams.get("group"), "coalesce(a.student_snapshot->>'group',g.name::text) = ?");
   addFilter(requestUrl.searchParams.get("subject"), "sub.name::text = ?");
   addFilter(requestUrl.searchParams.get("reason"), "r.name::text = ?");
   const search = String(requestUrl.searchParams.get("search") || "").trim();
   if (search) {
     values.push(`%${search}%`);
-    filters.push(`(s.enrollment::text ilike $${values.length} or s.full_name ilike $${values.length})`);
+    filters.push(`(s.enrollment::text ilike $${values.length} or coalesce(a.student_snapshot->>'name',s.full_name) ilike $${values.length})`);
   }
   values.push(limit, offset);
   const where = filters.length ? `where ${filters.join(" and ")}` : "";
   const result = await database.query(`
-    select a.id, s.enrollment::text, s.full_name as student_name, s.sex, s.shift,
-           c.code::text as career_code, g.name::text as group_name,
+    select a.id, s.enrollment::text, coalesce(a.student_snapshot->>'name',s.full_name) as student_name, coalesce(a.student_snapshot->>'sex',s.sex) as sex, coalesce(a.student_snapshot->>'shift',s.shift) as shift,
+           coalesce(a.student_snapshot->>'career',c.code::text) as career_code, coalesce(a.student_snapshot->>'group',g.name::text) as group_name,
            sub.name::text as subject_name, r.name::text as reason_name,
            p.name as period_name, u.username::text as advisor_username,
            a.comments, a.referred_to_psychopedagogy, a.started_at, a.ended_at,
@@ -399,7 +399,7 @@ async function apiAdminStatistics(request, response, requestUrl) {
     database.query(`select s.name::text as label,count(*)::integer as sessions,coalesce(sum(a.duration_minutes),0)::integer as minutes ${base} join public.subjects s on s.id=a.subject_id ${where} group by s.name order by minutes desc,label`, values),
     database.query(`select r.name::text as label,count(*)::integer as sessions,coalesce(sum(a.duration_minutes),0)::integer as minutes ${base} join public.advisory_reasons r on r.id=a.reason_id ${where} group by r.name order by minutes desc,label`, values),
     database.query(`select u.username::text as label,count(*)::integer as sessions,coalesce(sum(a.duration_minutes),0)::integer as minutes ${base} join public.app_users u on u.id=a.advisor_id ${where} group by u.username order by minutes desc,label`, values),
-    database.query(`select c.code::text as career,g.name::text as group_name,count(*)::integer as sessions,coalesce(sum(a.duration_minutes),0)::integer as minutes ${base} join public.students st on st.id=a.student_id join public.careers c on c.id=st.career_id join public.student_groups g on g.id=st.group_id ${where} group by c.code,g.name order by minutes desc,c.code,g.name`, values)
+    database.query(`select coalesce(a.student_snapshot->>'career',c.code::text) as career,coalesce(a.student_snapshot->>'group',g.name::text) as group_name,count(*)::integer as sessions,coalesce(sum(a.duration_minutes),0)::integer as minutes ${base} join public.students st on st.id=a.student_id join public.careers c on c.id=st.career_id join public.student_groups g on g.id=st.group_id ${where} group by 1,2 order by minutes desc,1,2`, values)
   ]);
   sendJson(response, 200, {ok:true,period:period||"all",summary:summary.rows[0],bySubject:bySubject.rows,byReason:byReason.rows,byAdvisor:byAdvisor.rows,byGroup:byGroup.rows});
 }
@@ -571,7 +571,11 @@ async function apiFindStudent(request, response, enrollment) {
   if (!requireSession(request, response)) return;
   const result = await database.query(`
     select s.enrollment::text, s.full_name, s.sex, s.shift,
-           c.code::text as career, g.name::text as group_name
+           c.code::text as career, g.name::text as group_name,
+           (select sub.name::text from public.advisories a
+              join public.subjects sub on sub.id = a.subject_id
+             where a.student_id = s.id and a.status = 'FINALIZADA'
+             order by a.ended_at desc, a.created_at desc, a.id desc limit 1) as last_subject
       from public.students s
       join public.careers c on c.id = s.career_id
       join public.student_groups g on g.id = s.group_id
@@ -583,8 +587,8 @@ async function apiFindStudent(request, response, enrollment) {
 
 async function apiListAdvisories(request, response, session) {
   const result = await database.query(`
-    select a.id, s.enrollment::text, s.full_name as student_name, s.sex, s.shift,
-           c.code::text as career_code, g.name::text as group_name,
+    select a.id, s.enrollment::text, coalesce(a.student_snapshot->>'name',s.full_name) as student_name, coalesce(a.student_snapshot->>'sex',s.sex) as sex, coalesce(a.student_snapshot->>'shift',s.shift) as shift,
+           coalesce(a.student_snapshot->>'career',c.code::text) as career_code, coalesce(a.student_snapshot->>'group',g.name::text) as group_name,
            sub.name::text as subject_name, r.name::text as reason_name,
            p.name as period_name, u.username::text as advisor_username,
            a.comments, a.referred_to_psychopedagogy, a.started_at, a.ended_at,
@@ -635,8 +639,7 @@ async function apiCreateAdvisory(request, response, session) {
   const client = await database.connect();
   try {
     await client.query("begin");
-    const existing = await client.query('select id from public.students where enrollment=$1',[data.enrollment]);
-    if (!existing.rowCount && body.nuevoCatalogo === true) await ensureStudentCatalog(client,data.career,data.group);
+    if (body.nuevoCatalogo === true) await ensureStudentCatalog(client,data.career,data.group);
     const group = await client.query(`
       select g.id, c.id as career_id
         from public.student_groups g
@@ -683,15 +686,21 @@ async function apiCreateAdvisory(request, response, session) {
       select id from public.students where lower(enrollment::text)=lower($1)
       limit 1
     `, [data.enrollment, data.fullName, data.sex, group.rows[0].career_id, group.rows[0].id, data.shift]);
+    const previous = (await client.query('select * from public.students where id=$1 for update',[student.rows[0].id])).rows[0];
+    const updated = [data.fullName,data.sex,group.rows[0].career_id,group.rows[0].id,data.shift];
+    if ([previous.full_name,previous.sex,previous.career_id,previous.group_id,previous.shift].some((v,i)=>v!==updated[i])) {
+      await client.query('update public.students set full_name=$2,sex=$3,career_id=$4,group_id=$5,shift=$6 where id=$1',[previous.id,...updated]);
+      await client.query('insert into public.audit_log(user_id,username,action,entity_type,entity_id,details) values($1,$2,$3,$4,$5,$6::jsonb)',[session.id,session.usuario,'STUDENT_UPDATED_AT_REGISTRATION','student',previous.id,JSON.stringify({before:previous,after:updated})]);
+    }
     const duration = Math.max(0, Math.round((data.endedAt - data.startedAt) / 60000));
     const inserted = await client.query(`
       insert into public.advisories
         (student_id, advisor_id, subject_id, reason_id, period_id, comments,
-         referred_to_psychopedagogy, started_at, ended_at, duration_minutes, status)
-      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'FINALIZADA')
+         referred_to_psychopedagogy, started_at, ended_at, duration_minutes, status, student_snapshot)
+      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'FINALIZADA', $11::jsonb)
       returning id
     `, [student.rows[0].id, session.id, ids.subject_id, ids.reason_id, ids.period_id,
-        data.comments, data.referred, data.startedAt.toISOString(), data.endedAt.toISOString(), duration]);
+        data.comments, data.referred, data.startedAt.toISOString(), data.endedAt.toISOString(), duration, JSON.stringify({name:data.fullName,sex:data.sex,shift:data.shift,career:data.career,group:data.group})]);
     if(body.activeCorrection){const correction=body.activeCorrection;if(typeof correction.reason!=='string'||!correction.reason.trim()||correction.reason.length>500)throw Object.assign(new Error('invalid_correction'),{statusCode:400,publicMessage:'Indique el motivo del ajuste.'});await client.query('insert into public.audit_log(user_id,username,action,entity_type,entity_id,details) values($1,$2,$3,$4,$5,$6::jsonb)',[session.id,session.usuario,'ADVISORY_TIME_AT_CREATION','advisory',inserted.rows[0].id,JSON.stringify(correction)]);}
     await client.query("commit");
     await audit(request,session,"ADVISORY_CREATED","advisory",inserted.rows[0].id,{enrollment:data.enrollment,period:data.period});
@@ -727,13 +736,14 @@ async function apiCorrectAdvisory(request,response,session,id) {
     const result=await client.query(`select a.*,s.enrollment::text,s.full_name,s.sex,s.shift,c.code::text as career,g.name::text as group_name from public.advisories a join public.students s on s.id=a.student_id join public.careers c on c.id=s.career_id join public.student_groups g on g.id=s.group_id where a.id=$1 and ($2::boolean or a.advisor_id=$3) and a.status='FINALIZADA' for update of a`,[id,session.rol==='admin',session.id]);
     const old=result.rows[0]; if(!old) fail('Registro no disponible o sin permiso.');
     if(body.action==='cancel') await client.query("update public.advisories set status='CANCELADA' where id=$1",[id]);
-    else if(body.action==='time') {
+    else if(body.action==='time'||(body.action==='edit'&&body.inicio!==undefined&&body.fin!==undefined)) {
       const start=new Date(body.inicio),end=new Date(body.fin);
       if(!Number.isFinite(+start)||!Number.isFinite(+end)||end<start||+end>Date.now()||end-start>43200000) fail('Horario inválido.');
       const valid=await client.query(`select (($1::timestamptz at time zone i.timezone)::date between p.starts_on and p.ends_on) and (($2::timestamptz at time zone i.timezone)::date between p.starts_on and p.ends_on) as ok from public.periods p cross join public.institution_settings i where p.id=$3`,[start,end,old.period_id]);
       if(!valid.rows[0]?.ok) fail('El horario debe pertenecer al cuatrimestre original.');
       await client.query('update public.advisories set started_at=$2,ended_at=$3,duration_minutes=$4 where id=$1',[id,start,end,Math.round((end-start)/60000)]);
-    } else if(body.action==='edit') {
+    }
+    if(body.action==='edit') {
       const fields=['matricula','nombre','sexo','carrera','grupo','turno','materia','motivo','comentarios'].map(k=>String(body[k]??'').trim());
       const [enrollment,name,sex,career,group,shift,subject,motive,comments]=fields;
       if(fields.slice(0,8).some(x=>!x||x==='Seleccione')||fields.some((x,i)=>x.length>[40,160,10,30,80,20,160,160,2000][i])||!['Hombre','Mujer'].includes(sex)||!['Matutino','Vespertino'].includes(shift)) fail('Datos inválidos.');
@@ -744,11 +754,11 @@ async function apiCorrectAdvisory(request,response,session,id) {
       if(student){if(student.full_name!==name||student.sex!==sex||student.shift!==shift||student.career_id!==x.cid||student.group_id!==x.gid){
         if(student.id!==old.student_id) fail('La matrícula pertenece a otro alumno con datos distintos.');
         const shared=await client.query('select 1 from public.advisories where student_id=$1 and id<>$2 limit 1',[student.id,id]);
-        if(shared.rowCount) fail('El alumno tiene otros registros. Solicite una corrección de datos maestros al administrador para proteger el historial.');
+        if(!shared.rowCount)
         await client.query('update public.students set full_name=$2,sex=$3,shift=$4,career_id=$5,group_id=$6 where id=$1',[student.id,name,sex,shift,x.cid,x.gid]);
       }}else{student=(await client.query('insert into public.students(enrollment,full_name,sex,career_id,group_id,shift) values($1,$2,$3,$4,$5,$6) returning id',[enrollment,name,sex,x.cid,x.gid,shift])).rows[0]}
-      await client.query('update public.advisories set student_id=$2,subject_id=$3,reason_id=$4,comments=$5,referred_to_psychopedagogy=$6 where id=$1',[id,student.id,x.sid,x.rid,comments,body.psico==='Sí']);
-    }else fail('Acción inválida.');
+      await client.query('update public.advisories set student_id=$2,subject_id=$3,reason_id=$4,comments=$5,referred_to_psychopedagogy=$6,student_snapshot=$7::jsonb where id=$1',[id,student.id,x.sid,x.rid,comments,body.psico==='Sí',JSON.stringify({name,sex,shift,career,group})]);
+    }else if(!['time','cancel'].includes(body.action)) fail('Acción inválida.');
     const after=(await client.query('select * from public.advisories where id=$1',[id])).rows[0];
     await client.query('insert into public.audit_log(user_id,username,action,entity_type,entity_id,details) values($1,$2,$3,$4,$5,$6::jsonb)',[session.id,session.usuario,'ADVISORY_'+body.action.toUpperCase(),'advisory',id,JSON.stringify({reason,before:old,after,changes:body})]);
     await client.query('commit');sendJson(response,200,{ok:true});
