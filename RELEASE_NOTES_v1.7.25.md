@@ -1,0 +1,2 @@
+# v1.7.25 — Candidata
+Nueva vista administrativa de indicadores descriptivos por cuatrimestre o todos, con umbral configurable de recurrencia (2, 3 o 5), demanda por materia, motivo, carrera, horas y canalizaciones. Se excluyen anuladas; alumnos sin matrícula no se cuentan como personas únicas. No hay diagnóstico ni clasificación de riesgo. Usa datos ya cargados por Administración; no requiere migración adicional. No incluye exportación específica. Pendiente prueba en navegador y PostgreSQL real.

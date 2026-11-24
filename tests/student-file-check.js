@@ -1,0 +1,7 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const admin=fs.readFileSync('admin.js','utf8'),app=fs.readFileSync('app.js','utf8'),server=fs.readFileSync('server.js','utf8');
+const nodes={studentFileEnrollment:{value:'ABC'},studentFileSummary:{},studentFileRows:{rows:[],replaceChildren(){this.rows=[]},insertRow(){const cells=[];this.rows.push(cells);return {insertCell(){const c={};cells.push(c);return c}}}}};
+const rows=[{matricula:'abc',periodo:'2025',materia:'A',duracionMinutos:20},{matricula:'ABC',periodo:'2026',materia:'B',duracionMinutos:30},{matricula:'ABC',estado:'CANCELADA',duracionMinutos:100},{matricula:'ABCD',duracionMinutos:100}];
+vm.runInNewContext(admin.slice(admin.indexOf('function renderStudentFile()'),admin.indexOf("document.addEventListener('DOMContentLoaded'",admin.indexOf('function renderStudentFile()')))+'\nrenderStudentFile()', {admin$:k=>nodes[k],centralAdminData:{},adminRecords:()=>rows,adminStudents:()=>[{matricula:'ABC',nombre:'Alumno'}],fmtAdmin:n=>String(n)});
+assert.equal(nodes.studentFileRows.rows.length,2);assert.match(nodes.studentFileSummary.textContent,/2 asesorías · 50 · 2 materias · 2 cuatrimestres/);
+assert.match(app,/nuevaMateria:/);assert.match(server,/on conflict\(name\) do nothing returning id/);assert.match(server,/if\(body.nuevaMateria===true\) await ensureAdvisorySubject/);console.log('Expediente: simulación de matrícula exacta, periodos y exclusión de anuladas; alta materia: revisión estática OK');

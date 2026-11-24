@@ -5,6 +5,8 @@ const path = require("path");
 const crypto = require("crypto");
 const { Pool } = require("pg");
 const bcrypt = require("bcryptjs");
+const {positiveInteger}=require("./lib/pagination");
+const {resolveDraftPeriod}=require("./lib/draft-period");
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = __dirname;
@@ -20,11 +22,14 @@ if (process.env.NODE_ENV === "production" && SESSION_SECRET.length < 32) {
 const effectiveSessionSecret = SESSION_SECRET || crypto.randomBytes(32).toString("hex");
 const database = DATABASE_URL
   ? new Pool({
-      connectionString: DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
+      connectionString: DATABASE_URL ? (() => { const u = new URL(DATABASE_URL); for (const k of ["sslmode","sslcert","sslkey","sslrootcert","ssl"]) u.searchParams.delete(k); return u.toString(); })() : "",
+      ssl: { rejectUnauthorized: true, ...(process.env.DATABASE_CA_CERT ? { ca: process.env.DATABASE_CA_CERT.replace(/\\n/g, "\n") } : {}) },
       max: 5,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000
+      connectionTimeoutMillis: 10000,
+      statement_timeout: 25000,
+      lock_timeout: 10000,
+      idle_in_transaction_session_timeout: 60000
     })
   : null;
 let schemaCapabilitiesPromise = null;
@@ -189,14 +194,14 @@ function readJsonBody(request, limit = 16384) {
 }
 
 // DATOS INICIALES Y AUTENTICACIÓN: catálogos para Registro e inicio de sesión.
-async function getBootstrap() {
+async function getBootstrap(queryable = database) {
   const [institution, periods, careers, groups, subjects, reasons] = await Promise.all([
-    database.query("select school_name, footer_text, timezone from public.institution_settings where id = true"),
-    database.query("select id, name, starts_on, ends_on, active from public.periods order by active desc, (current_date between starts_on and ends_on) desc, starts_on desc"),
-    database.query("select id, code::text, name from public.careers where active = true order by code"),
-    database.query("select id, name::text, career_id from public.student_groups where active = true order by name"),
-    database.query("select id, name::text from public.subjects where active = true order by name"),
-    database.query("select id, name::text from public.advisory_reasons where active = true order by name")
+    queryable.query("select school_name, footer_text, timezone from public.institution_settings where id = true"),
+    queryable.query("select id, name, starts_on, ends_on, active from public.periods order by active desc, (current_date between starts_on and ends_on) desc, starts_on desc"),
+    queryable.query("select id, code::text, name from public.careers where active = true order by code"),
+    queryable.query("select id, name::text, career_id from public.student_groups where active = true order by name"),
+    queryable.query("select id, name::text from public.subjects where active = true order by name"),
+    queryable.query("select id, name::text from public.advisory_reasons where active = true order by name")
   ]);
   return {
     school: institution.rows[0] || {},
@@ -270,8 +275,11 @@ async function isActiveAdminSession(session){
 async function apiAdminData(request, response) {
   if (!await requireAdmin(request, response)) return;
   const session = readSession(request, "admin_session");
+  const client = await database.connect();
+  try {
+  await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
   const [advisories, students, users, bootstrap, periodsAdmin, groupsAdmin, careersAdmin, subjectsAdmin, reasonsAdmin] = await Promise.all([
-    database.query(`
+    (new URL(request.url, "http://localhost").searchParams.get("metadata") === "1" ? Promise.resolve({rows:[]}) : client.query(`
       select a.id, s.enrollment::text, coalesce(a.student_snapshot->>'name',s.full_name) as student_name, coalesce(a.student_snapshot->>'sex',s.sex) as sex, coalesce(a.student_snapshot->>'shift',s.shift) as shift,
              coalesce(a.student_snapshot->>'career',c.code::text) as career_code, coalesce(a.student_snapshot->>'group',g.name::text) as group_name,
              sub.name::text as subject_name, r.name::text as reason_name,
@@ -287,42 +295,40 @@ async function apiAdminData(request, response) {
         join public.periods p on p.id = a.period_id
         join public.app_users u on u.id = a.advisor_id
        where a.status <> 'CANCELADA'
-       order by a.started_at desc
-    `),
-    database.query(`select s.enrollment::text as matricula, s.full_name as nombre, s.sex as sexo,
+       order by a.created_at desc, a.id desc
+    `)),
+    client.query(`select s.enrollment::text as matricula, s.full_name as nombre, s.sex as sexo,
                            c.code::text as carrera, g.name::text as grupo, s.shift as turno
                       from public.students s join public.careers c on c.id=s.career_id
                       join public.student_groups g on g.id=s.group_id where s.active=true order by s.full_name`),
-    database.query(`select id, username::text as usuario, full_name as nombre, role as rol, active as activo,
+    client.query(`select id, username::text as usuario, full_name as nombre, role as rol, active as activo,
                            (password_hash is not null) as "requierePassword",
                            (recovery_code_hash is not null) as "recuperacionConfigurada"
                       from public.app_users order by role, full_name`),
-    getBootstrap(),
-    database.query("select id, name, starts_on, ends_on, active from public.periods order by starts_on desc"),
-    database.query(`select g.id, g.name::text, g.career_id, g.active, c.code::text as career_code
+    getBootstrap(client),
+    client.query("select id, name, starts_on, ends_on, active from public.periods order by starts_on desc"),
+    client.query(`select g.id, g.name::text, g.career_id, g.active, c.code::text as career_code
                       from public.student_groups g left join public.careers c on c.id=g.career_id
                      order by c.code nulls last, g.name`),
-    database.query("select id,code::text as code,name,active from public.careers order by code"),
-    database.query("select id,name::text,active from public.subjects order by name"),
-    database.query("select id,name::text,active from public.advisory_reasons order by name")
+    client.query("select id,code::text as code,name,active from public.careers order by code"),
+    client.query("select id,name::text,active from public.subjects order by name"),
+    client.query("select id,name::text,active from public.advisory_reasons order by name")
   ]);
+  await client.query("COMMIT");
   sendJson(response, 200, { ok: true, user: session, data: {
     advisories: advisories.rows.map(advisoryRow), students: students.rows, users: users.rows,
     catalogs: bootstrap, periodsAdmin: periodsAdmin.rows, groupsAdmin: groupsAdmin.rows,
     catalogItems: { carreras: careersAdmin.rows, materias: subjectsAdmin.rows, motivos: reasonsAdmin.rows }
   }});
+  } catch (error) {
+    try { await client.query("ROLLBACK"); } catch (_) {}
+    throw error;
+  } finally { client.release(); }
 }
 
 // CONSULTAS ESCALABLES: servicios opcionales para reportes paginados y estadísticas agregadas.
 // La respuesta histórica de /api/admin/data se conserva para no alterar la interfaz estable.
-function positiveInteger(value, fallback, maximum) {
-  if (value === null || value === undefined || value === "") return fallback;
-  const raw = String(value).trim();
-  if (!/^\d{1,10}$/.test(raw)) return fallback;
-  const parsed = Number(raw);
-  if (!Number.isSafeInteger(parsed)) return fallback;
-  return Math.min(parsed, maximum);
-}
+
 
 async function apiAdminAdvisoriesPage(request, response, requestUrl) {
   if (!await requireAdmin(request, response)) return;
@@ -345,7 +351,14 @@ async function apiAdminAdvisoriesPage(request, response, requestUrl) {
     values.push(`%${search}%`);
     filters.push(`(s.enrollment::text ilike $${values.length} or coalesce(a.student_snapshot->>'name',s.full_name) ilike $${values.length})`);
   }
-  values.push(limit, offset);
+  const cursor=requestUrl.searchParams.get('cursor');
+  if(cursor && offset) return sendJson(response,400,{ok:false,code:'mixed_pagination'});
+  const cutoff=requestUrl.searchParams.get('cutoff')||new Date().toISOString();
+  if(!Number.isFinite(Date.parse(cutoff)))return sendJson(response,400,{ok:false});
+  {values.push(cutoff);filters.push(`a.created_at <= $${values.length}::timestamptz`);}
+  if(cursor){const parts=cursor.split('|');if(parts.length!==2||!Number.isFinite(Date.parse(parts[0]))||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parts[1]))return sendJson(response,400,{ok:false});values.push(...parts);filters.push(`(a.created_at,a.id)<($${values.length-1}::timestamptz,$${values.length}::uuid)`);}
+  const countRequested=requestUrl.searchParams.get("count")!=="0";
+  values.push(limit+(countRequested?0:1), offset);
   const where = filters.length ? `where ${filters.join(" and ")}` : "";
   const result = await database.query(`
     select a.id, s.enrollment::text, coalesce(a.student_snapshot->>'name',s.full_name) as student_name, coalesce(a.student_snapshot->>'sex',s.sex) as sex, coalesce(a.student_snapshot->>'shift',s.shift) as shift,
@@ -353,7 +366,7 @@ async function apiAdminAdvisoriesPage(request, response, requestUrl) {
            sub.name::text as subject_name, r.name::text as reason_name,
            p.name as period_name, u.username::text as advisor_username,
            a.comments, a.referred_to_psychopedagogy, a.started_at, a.ended_at,
-           a.duration_minutes, a.status, a.created_at, count(*) over()::integer as total_count
+           a.duration_minutes, a.status, a.created_at, a.created_at::text as cursor_time, ${countRequested ? "count(*) over()::integer" : "null::integer"} as total_count
       from public.advisories a
       join public.students s on s.id=a.student_id
       join public.careers c on c.id=s.career_id
@@ -363,13 +376,13 @@ async function apiAdminAdvisoriesPage(request, response, requestUrl) {
       join public.periods p on p.id=a.period_id
       join public.app_users u on u.id=a.advisor_id
       ${where}
-     order by a.started_at desc, a.id desc
+     order by a.created_at desc, a.id desc
      limit $${values.length - 1} offset $${values.length}
   `, values);
   // count(*) over() no devuelve filas cuando offset supera el último registro.
   // Una consulta COUNT separada solo en esa situación conserva el total real.
   let total = result.rows[0]?.total_count;
-  if (total === undefined) {
+  if (countRequested && total === undefined) {
     const countValues = values.slice(0, -2);
     const countResult = await database.query(`
       select count(*)::integer as total
@@ -385,7 +398,9 @@ async function apiAdminAdvisoriesPage(request, response, requestUrl) {
     `, countValues);
     total = countResult.rows[0]?.total || 0;
   }
-  sendJson(response, 200, { ok:true, page:{limit,offset,total,hasMore:offset + result.rows.length < total}, advisories:result.rows.map(advisoryRow) });
+  const hasMore=countRequested?offset+result.rows.length<total:result.rows.length>limit;
+  if(!countRequested)result.rows=result.rows.slice(0,limit);
+  sendJson(response, 200, { ok:true, page:{limit,offset,total,cutoff,nextCursor:result.rows.length?result.rows.at(-1).cursor_time+'|'+result.rows.at(-1).id:null,hasMore}, advisories:result.rows.map(advisoryRow) });
 }
 
 async function apiAdminStatistics(request, response, requestUrl) {
@@ -607,11 +622,56 @@ async function apiListAdvisories(request, response, session) {
   sendJson(response, 200, { ok: true, advisories: result.rows.map(advisoryRow) });
 }
 
+// Borrador privado por asesor. La operación finalizada nunca se vuelve a abrir.
+async function apiDraft(request,response,session){
+  if(request.method==='GET'){
+    const op=new URL(request.url||'/','http://localhost').searchParams.get('operationId');
+    const r=await database.query(`select d.payload,d.revision,exists(select 1 from public.advisories where advisor_id=$1 and operation_id::text=$2) as completed,exists(select 1 from public.audit_log where user_id=$1 and action='DRAFT_DISCARDED' and entity_id=$2) as discarded from (select 1) seed left join public.advisory_drafts d on d.advisor_id=$1 and not exists(select 1 from public.advisories a where a.advisor_id=d.advisor_id and a.operation_id=d.operation_id)`,[session.id,op]);
+    const row=r.rows[0]||{};return sendJson(response,200,{ok:true,completed:!!row.completed,discarded:!!row.discarded,draft:row.payload?{...row.payload,revision:row.revision||0}:null});
+  }
+  if(!['PUT','DELETE'].includes(request.method))return sendJson(response,405,{ok:false});
+  const b=await readJsonBody(request,32768).catch(()=>null);
+  if(!b||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(b.operationId||'')||(request.method==='PUT'&&(!Number.isFinite(Date.parse(b.start))||!b.fields||typeof b.fields!=='object')))return sendJson(response,400,{ok:false});
+  const fields={};for(const k of ['matricula','nombre','sexo','carrera','grupo','turno','materia','motivo','psico','comentarios'])fields[k]=String(b.fields?.[k]||'').slice(0,2000);
+  const payload={operationId:b.operationId,start:b.start,fields,newStudent:!!b.newStudent,manualCatalogUsed:!!b.manualCatalogUsed,activeCorrection:b.activeCorrection||null,manualEnd:b.manualEnd||null,period:b.period||null,periodId:b.periodId||null};
+  const c=await database.connect();try{await c.query('begin');await c.query('select pg_advisory_xact_lock(hashtextextended($1,0))',[session.id+':draft']);
+    const done=await c.query('select id from public.advisories where advisor_id=$1 and operation_id=$2',[session.id,b.operationId]);
+    if(done.rows.length){await c.query('commit');return sendJson(response,200,{ok:true,completed:true});}
+    const old=(await c.query('select operation_id,revision,payload from public.advisory_drafts where advisor_id=$1 for update',[session.id])).rows[0];
+    const cancelled=await c.query("select 1 from public.audit_log where user_id=$1 and action='DRAFT_DISCARDED' and entity_id=$2",[session.id,b.operationId]);
+    if(cancelled.rowCount){await c.query('commit');return sendJson(response,409,{ok:false,discarded:true});}
+    if(!Number.isSafeInteger(Number(b.revision||0))||Number(b.revision||0)<0||(!old&&Number(b.revision||0)!==0)||(old&&(old.operation_id!==b.operationId||Number(old.revision)!==Number(b.revision||0)))){await c.query('rollback');return sendJson(response,409,{ok:false,code:'draft_conflict'});}
+    if(request.method==='DELETE'){
+      await c.query("insert into public.audit_log(user_id,username,action,entity_type,entity_id,details) values($1,$2,'DRAFT_DISCARDED','draft',$3,'{}'::jsonb)",[session.id,session.usuario,b.operationId]);
+      await c.query('delete from public.advisory_drafts where advisor_id=$1 and operation_id=$2',[session.id,b.operationId]);
+      await c.query('commit');return sendJson(response,200,{ok:true});
+    }
+    const period=await resolveDraftPeriod(c,payload,old?.payload);
+    if(!period){await c.query('rollback');return sendJson(response,400,{ok:false,code:'ambiguous_period',message:'No existe un cuatrimestre inequívoco para la fecha original del borrador.'});}
+    payload.period=period.name;payload.periodId=period.id;
+    const r=await c.query(`insert into public.advisory_drafts(advisor_id,operation_id,payload,revision) values($1,$2,$3::jsonb,1) on conflict(advisor_id) do update set payload=excluded.payload,updated_at=now(),revision=advisory_drafts.revision+1 returning revision`,[session.id,b.operationId,JSON.stringify(payload)]);
+    await c.query('commit');return sendJson(response,200,{ok:true,revision:r.rows[0].revision,period:payload.period,periodId:payload.periodId});
+  }catch(e){await c.query('rollback');throw e}finally{c.release()}
+}
+
+// Alta explícita de materia dentro de la transacción de la asesoría.
+async function ensureAdvisorySubject(client,session,name){
+  if(!name||name==='Seleccione'||name.length>160) throw Object.assign(new Error('invalid_subject'),{statusCode:400,publicMessage:'Capture una materia válida.'});
+  const existing=await client.query('select id,active from public.subjects where name=$1',[name]);
+  if(existing.rows[0]){if(!existing.rows[0].active)throw Object.assign(new Error('inactive_subject'),{statusCode:400,publicMessage:'La materia está inactiva. Solicite su reactivación a Administración.'});return;}
+  const inserted=await client.query('insert into public.subjects(name,active) values($1,true) on conflict(name) do nothing returning id',[name]);
+  if(inserted.rows[0])await client.query('insert into public.audit_log(user_id,username,action,entity_type,entity_id,details) values($1,$2,$3,$4,$5,$6::jsonb)',[session.id,session.usuario,'CATALOG_CREATED','materias',inserted.rows[0].id,JSON.stringify({name})]);
+  const verified=await client.query('select id from public.subjects where name=$1 and active=true',[name]);
+  if(!verified.rowCount)throw Object.assign(new Error('inactive_subject'),{statusCode:400,publicMessage:'La materia no está activa.'});
+}
+
 async function apiCreateAdvisory(request, response, session) {
   let body;
   try { body = await readJsonBody(request, 32768); }
   catch (error) { sendJson(response, 400, { ok: false, code: error.message }); return; }
 
+  const operationId = String(body.id || "");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(operationId)) { sendJson(response,400,{ok:false,message:"Actualice la página antes de guardar."}); return; }
   const data = {
     enrollment: String(body.matricula || "").trim(),
     fullName: String(body.nombre || "").trim(),
@@ -627,18 +687,28 @@ async function apiCreateAdvisory(request, response, session) {
     startedAt: new Date(body.inicio),
     endedAt: new Date(body.fin)
   };
-  const requiredText = [data.enrollment, data.fullName, data.sex, data.career, data.group, data.shift, data.subject, data.reason, data.period];
-  if (requiredText.some(value => !value || value === "Seleccione") || Number.isNaN(data.startedAt.getTime()) || Number.isNaN(data.endedAt.getTime())) {
-    sendJson(response, 400, { ok: false, code: "invalid_advisory", message: "Faltan datos obligatorios de la asesoría." }); return;
-  }
-  if (!['Hombre', 'Mujer'].includes(data.sex) || !['Matutino', 'Vespertino'].includes(data.shift) || data.endedAt < data.startedAt) {
-    sendJson(response, 400, { ok: false, code: "invalid_advisory", message: "Los datos de la asesoría no son válidos." }); return;
-  }
-  if(data.enrollment.length>40||data.fullName.length>160||data.career.length>30||data.group.length>80||data.subject.length>160||data.reason.length>160||data.period.length>160||data.comments.length>2000){sendJson(response,400,{ok:false,code:"invalid_length",message:"Uno o más datos exceden la longitud permitida."});return}
-
   const client = await database.connect();
   try {
     await client.query("begin");
+    await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))",[session.id+":"+operationId]);
+    await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))",[session.id+":draft"]);
+    const existing = await client.query("select id,operation_fingerprint from public.advisories where advisor_id=$1 and operation_id=$2",[session.id,operationId]);
+    const legacyFingerprint=require('crypto').createHash('sha256').update(JSON.stringify(data)).digest('hex');
+    const fingerprint='v2:'+require('crypto').createHash('sha256').update(JSON.stringify({data,periodId:body.periodId||null,nuevoCatalogo:body.nuevoCatalogo===true,nuevaMateria:body.nuevaMateria===true,activeCorrection:body.activeCorrection||null})).digest('hex');
+    if(existing.rows[0]) { if(existing.rows[0].operation_fingerprint&&existing.rows[0].operation_fingerprint!==(existing.rows[0].operation_fingerprint.startsWith('v2:')?fingerprint:legacyFingerprint)){await client.query('commit');return sendJson(response,409,{ok:false,code:'operation_mismatch',message:'La operación ya fue guardada con otros datos. Consulte el historial.'});} await client.query("commit"); sendJson(response,200,{ok:true,id:existing.rows[0].id,replayed:true}); return; }
+  const requiredText = [data.enrollment, data.fullName, data.sex, data.career, data.group, data.shift, data.subject, data.reason, data.period];
+  if (requiredText.some(value => !value || value === "Seleccione") || Number.isNaN(data.startedAt.getTime()) || Number.isNaN(data.endedAt.getTime())) {
+    await client.query("rollback"); sendJson(response, 400, { ok: false, code: "invalid_advisory", message: "Faltan datos obligatorios de la asesoría." }); return;
+  }
+  if (!['Hombre', 'Mujer'].includes(data.sex) || !['Matutino', 'Vespertino'].includes(data.shift) || data.endedAt < data.startedAt) {
+    await client.query("rollback"); sendJson(response, 400, { ok: false, code: "invalid_advisory", message: "Los datos de la asesoría no son válidos." }); return;
+  }
+  if(data.enrollment.length>40||data.fullName.length>160||data.career.length>30||data.group.length>80||data.subject.length>160||data.reason.length>160||data.period.length>160||data.comments.length>2000){await client.query("rollback");sendJson(response,400,{ok:false,code:"invalid_length",message:"Uno o más datos exceden la longitud permitida."});return}
+
+    const draft=(await client.query('select payload,revision,operation_id from public.advisory_drafts where advisor_id=$1',[session.id])).rows[0];
+    if(draft&&(draft.operation_id!==operationId||Number(draft.revision)!==Number(body.revision||0)))throw Object.assign(new Error('draft_conflict'),{statusCode:400,publicMessage:'El borrador cambió en otro dispositivo. Recargue antes de guardar.'});
+    if((await client.query("select 1 from public.audit_log where user_id=$1 and action='DRAFT_DISCARDED' and entity_id=$2",[session.id,operationId])).rowCount)throw Object.assign(new Error('discarded'),{statusCode:400,publicMessage:'El borrador fue descartado.'});
+    const periodId=draft?.payload.periodId||body.periodId||null;
     if (body.nuevoCatalogo === true) await ensureStudentCatalog(client,data.career,data.group);
     const group = await client.query(`
       select g.id, c.id as career_id
@@ -657,14 +727,15 @@ async function apiCreateAdvisory(request, response, session) {
       });
     }
 
+    if(body.nuevaMateria===true) await ensureAdvisorySubject(client,session,data.subject);
     const catalogs = await client.query(`
       select
         (select id from public.subjects where active = true and lower(trim(name::text)) = lower(trim($1)) limit 1) as subject_id,
         (select id from public.advisory_reasons where active = true and lower(trim(name::text)) = lower(trim($2)) limit 1) as reason_id,
-        (select id from public.periods where active = true and lower(trim(name)) = lower(trim($3)) limit 1) as period_id,
-        (select to_char(starts_on,'YYYY-MM-DD') from public.periods where active = true and lower(trim(name)) = lower(trim($3)) limit 1) as period_start,
-        (select to_char(ends_on,'YYYY-MM-DD') from public.periods where active = true and lower(trim(name)) = lower(trim($3)) limit 1) as period_end
-    `, [data.subject, data.reason, data.period]);
+        (select id from public.periods where (($4::uuid is not null and id=$4) or ($4::uuid is null and active=true and lower(trim(name))=lower(trim($3)))) limit 1) as period_id,
+        (select to_char(starts_on,'YYYY-MM-DD') from public.periods where (($4::uuid is not null and id=$4) or ($4::uuid is null and active=true and lower(trim(name))=lower(trim($3)))) limit 1) as period_start,
+        (select to_char(ends_on,'YYYY-MM-DD') from public.periods where (($4::uuid is not null and id=$4) or ($4::uuid is null and active=true and lower(trim(name))=lower(trim($3)))) limit 1) as period_end
+    `, [data.subject, data.reason, data.period,periodId]);
     const ids = catalogs.rows[0];
     if (!ids.subject_id) throw Object.assign(new Error("invalid_subject"), { statusCode: 400, publicMessage: "La materia seleccionada ya no está activa. Actualice la página y selecciónela nuevamente." });
     if (!ids.reason_id) throw Object.assign(new Error("invalid_reason"), { statusCode: 400, publicMessage: "El motivo seleccionado ya no está activo. Actualice la página y selecciónelo nuevamente." });
@@ -674,18 +745,9 @@ async function apiCreateAdvisory(request, response, session) {
     const localDates=await client.query(`select (($1::timestamptz at time zone coalesce(i.timezone,'America/Mexico_City'))::date between p.starts_on and p.ends_on) as start_valid,(($2::timestamptz at time zone coalesce(i.timezone,'America/Mexico_City'))::date between p.starts_on and p.ends_on) as end_valid from public.periods p cross join public.institution_settings i where p.id=$3`,[data.startedAt.toISOString(),data.endedAt.toISOString(),ids.period_id]);
     if(!localDates.rows[0]?.start_valid||!localDates.rows[0]?.end_valid){throw Object.assign(new Error("advisory_outside_period"),{statusCode:400,publicMessage:"La fecha local de la asesoría no corresponde al cuatrimestre seleccionado."})}
 
-    const student = await client.query(`
-      with inserted as (
-        insert into public.students (enrollment, full_name, sex, career_id, group_id, shift, active)
-        values ($1, $2, $3, $4, $5, $6, true)
-        on conflict (enrollment) do nothing
-        returning id
-      )
-      select id from inserted
-      union all
-      select id from public.students where lower(enrollment::text)=lower($1)
-      limit 1
-    `, [data.enrollment, data.fullName, data.sex, group.rows[0].career_id, group.rows[0].id, data.shift]);
+    await client.query(`insert into public.students (enrollment,full_name,sex,career_id,group_id,shift,active) values ($1,$2,$3,$4,$5,$6,true) on conflict (enrollment) do nothing`,[data.enrollment,data.fullName,data.sex,group.rows[0].career_id,group.rows[0].id,data.shift]);
+    const student=await client.query('select id from public.students where enrollment=$1',[data.enrollment]);
+    if(!student.rows[0])throw Error('student_not_found');
     const previous = (await client.query('select * from public.students where id=$1 for update',[student.rows[0].id])).rows[0];
     const updated = [data.fullName,data.sex,group.rows[0].career_id,group.rows[0].id,data.shift];
     if ([previous.full_name,previous.sex,previous.career_id,previous.group_id,previous.shift].some((v,i)=>v!==updated[i])) {
@@ -696,14 +758,15 @@ async function apiCreateAdvisory(request, response, session) {
     const inserted = await client.query(`
       insert into public.advisories
         (student_id, advisor_id, subject_id, reason_id, period_id, comments,
-         referred_to_psychopedagogy, started_at, ended_at, duration_minutes, status, student_snapshot)
-      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'FINALIZADA', $11::jsonb)
+         referred_to_psychopedagogy, started_at, ended_at, duration_minutes, status, student_snapshot, operation_id, operation_fingerprint)
+      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'FINALIZADA', $11::jsonb, $12, $13)
       returning id
     `, [student.rows[0].id, session.id, ids.subject_id, ids.reason_id, ids.period_id,
-        data.comments, data.referred, data.startedAt.toISOString(), data.endedAt.toISOString(), duration, JSON.stringify({name:data.fullName,sex:data.sex,shift:data.shift,career:data.career,group:data.group})]);
+        data.comments, data.referred, data.startedAt.toISOString(), data.endedAt.toISOString(), duration, JSON.stringify({name:data.fullName,sex:data.sex,shift:data.shift,career:data.career,group:data.group}), operationId,fingerprint]);
     if(body.activeCorrection){const correction=body.activeCorrection;if(typeof correction.reason!=='string'||!correction.reason.trim()||correction.reason.length>500)throw Object.assign(new Error('invalid_correction'),{statusCode:400,publicMessage:'Indique el motivo del ajuste.'});await client.query('insert into public.audit_log(user_id,username,action,entity_type,entity_id,details) values($1,$2,$3,$4,$5,$6::jsonb)',[session.id,session.usuario,'ADVISORY_TIME_AT_CREATION','advisory',inserted.rows[0].id,JSON.stringify(correction)]);}
+    await client.query('delete from public.advisory_drafts where advisor_id=$1 and operation_id=$2',[session.id,operationId]);
+    await client.query("insert into public.audit_log(user_id,username,action,entity_type,entity_id,details) values($1,$2,'ADVISORY_CREATED','advisory',$3,$4::jsonb)",[session.id,session.usuario,inserted.rows[0].id,JSON.stringify({enrollment:data.enrollment,period:data.period})]);
     await client.query("commit");
-    await audit(request,session,"ADVISORY_CREATED","advisory",inserted.rows[0].id,{enrollment:data.enrollment,period:data.period});
     sendJson(response, 201, { ok: true, id: inserted.rows[0].id });
   } catch (error) {
     await client.query("rollback");
@@ -738,7 +801,10 @@ async function apiCorrectAdvisory(request,response,session,id) {
     if(body.action==='cancel') await client.query("update public.advisories set status='CANCELADA' where id=$1",[id]);
     else if(body.action==='time'||(body.action==='edit'&&body.inicio!==undefined&&body.fin!==undefined)) {
       const start=new Date(body.inicio),end=new Date(body.fin);
-      if(!Number.isFinite(+start)||!Number.isFinite(+end)||end<start||+end>Date.now()||end-start>43200000) fail('Horario inválido.');
+      if(!body.inicio||!body.fin||!Number.isFinite(+start)||!Number.isFinite(+end)) fail('Introduzca fechas y horas válidas.');
+      if(end<start) fail('La hora de término no puede ser anterior al inicio.');
+      if(end-start>43200000) fail('La duración no puede superar 12 horas.');
+      if(+end>Date.now()+300000) fail('La hora de término está en el futuro respecto al servidor. Revise el reloj y la zona horaria del dispositivo.');
       const valid=await client.query(`select (($1::timestamptz at time zone i.timezone)::date between p.starts_on and p.ends_on) and (($2::timestamptz at time zone i.timezone)::date between p.starts_on and p.ends_on) as ok from public.periods p cross join public.institution_settings i where p.id=$3`,[start,end,old.period_id]);
       if(!valid.rows[0]?.ok) fail('El horario debe pertenecer al cuatrimestre original.');
       await client.query('update public.advisories set started_at=$2,ended_at=$3,duration_minutes=$4 where id=$1',[id,start,end,Math.round((end-start)/60000)]);
@@ -763,6 +829,35 @@ async function apiCorrectAdvisory(request,response,session,id) {
     await client.query('insert into public.audit_log(user_id,username,action,entity_type,entity_id,details) values($1,$2,$3,$4,$5,$6::jsonb)',[session.id,session.usuario,'ADVISORY_'+body.action.toUpperCase(),'advisory',id,JSON.stringify({reason,before:old,after,changes:body})]);
     await client.query('commit');sendJson(response,200,{ok:true});
   }catch(error){await client.query('rollback');if(error.statusCode===400)sendJson(response,400,{ok:false,message:error.message});else throw error;}finally{client.release()}
+}
+
+// Bitácora y restauración: acceso exclusivo del administrador activo.
+async function apiAdminAudit(request,response,url) {
+  const session=await requireAdmin(request,response);if(!session)return;
+  const offset=Number(url.searchParams.get('offset')||0);
+  if(!Number.isSafeInteger(offset)||offset<0||offset>1000000)return sendJson(response,400,{ok:false});
+  const cancelled=url.searchParams.get('view')==='cancelled';
+  const result=await database.query(cancelled?`select a.id,s.enrollment::text,coalesce(a.student_snapshot->>'name',s.full_name) as student_name,u.username::text as advisor,p.name as period,a.started_at,a.ended_at,a.duration_minutes,sub.name::text as subject,log.details->>'reason' as reason from public.advisories a join public.students s on s.id=a.student_id join public.app_users u on u.id=a.advisor_id join public.periods p on p.id=a.period_id join public.subjects sub on sub.id=a.subject_id left join lateral (select details from public.audit_log where entity_type='advisory' and entity_id=a.id::text and action='ADVISORY_CANCEL' order by id desc limit 1) log on true where a.status='CANCELADA' order by a.started_at desc,a.id desc limit 51 offset $1`:`select id::text,username,action,entity_type,entity_id,created_at,details from public.audit_log order by created_at desc,id desc limit 51 offset $1`,[offset]);
+  sendJson(response,200,{ok:true,items:result.rows.slice(0,50),hasMore:result.rows.length>50});
+}
+async function apiRestoreAdvisory(request,response,id) {
+  const session=await requireAdmin(request,response);if(!session)return;
+  const body=await readJsonBody(request,32768).catch(()=>null);
+  const reason=typeof body?.reason==='string'?body.reason.trim():'';
+  if(!reason||reason.length>500)return sendJson(response,400,{ok:false,message:'Indique un motivo de hasta 500 caracteres.'});
+  const client=await database.connect();
+  try {
+    await client.query('begin');
+    const before=(await client.query("select * from public.advisories where id=$1 and status='CANCELADA' for update",[id])).rows[0];
+    if(!before){await client.query('rollback');return sendJson(response,409,{ok:false,message:'El registro ya no está anulado o no existe.'});}
+    if(!before.ended_at||!before.started_at||new Date(before.ended_at)<new Date(before.started_at)||before.duration_minutes==null||before.duration_minutes<0){await client.query('rollback');return sendJson(response,409,{ok:false,message:'El registro tiene un horario inconsistente; requiere revisión técnica.'});}
+    const span=+new Date(before.ended_at)-+new Date(before.started_at);
+    const valid=await client.query(`select (($1::timestamptz at time zone i.timezone)::date between p.starts_on and p.ends_on) and (($2::timestamptz at time zone i.timezone)::date between p.starts_on and p.ends_on) as ok from public.periods p cross join public.institution_settings i where p.id=$3`,[before.started_at,before.ended_at,before.period_id]);
+    if(!Number.isFinite(span)||span>43200000||+new Date(before.ended_at)>Date.now()+300000||Math.round(span/60000)!==before.duration_minutes||!valid.rows[0]?.ok){await client.query('rollback');return sendJson(response,409,{ok:false,message:'Horario histórico inconsistente; requiere revisión técnica.'});}
+    const after=(await client.query("update public.advisories set status='FINALIZADA' where id=$1 returning *",[id])).rows[0];
+    await client.query('insert into public.audit_log(user_id,username,action,entity_type,entity_id,details) values($1,$2,$3,$4,$5,$6::jsonb)',[session.id,session.usuario,'ADVISORY_RESTORE','advisory',id,JSON.stringify({reason,before,after})]);
+    await client.query('commit');sendJson(response,200,{ok:true});
+  }catch(error){await client.query('rollback');throw error;}finally{client.release();}
 }
 
 // SALUD DE BASE DE DATOS: comprueba la conexión y construye el estado del servicio.
@@ -854,6 +949,13 @@ const server = http.createServer(async (request, response) => {
     try { await apiAdminAdvisoriesPage(request,response,requestUrl); } catch(error) { console.error("Error en reporte paginado:",error.message); sendJson(response,503,{ok:false,code:"database_error"}); }
     return;
   }
+
+  if (requestUrl.pathname === '/api/admin/audit') {
+    if(request.method!=='GET')return sendJson(response,405,{ok:false});
+    try{await apiAdminAudit(request,response,requestUrl);}catch(error){console.error('Bitácora:',error.message);sendJson(response,503,{ok:false});}return;
+  }
+  const restoreMatch=requestUrl.pathname.match(/^\/api\/admin\/advisories\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/restore$/i);
+  if(restoreMatch){if(request.method!=='POST')return sendJson(response,405,{ok:false});try{await apiRestoreAdvisory(request,response,restoreMatch[1]);}catch(error){console.error('Restauración:',error.message);sendJson(response,503,{ok:false,message:'No fue posible restaurar.'});}return;}
 
   if (requestUrl.pathname === "/api/admin/statistics") {
     if (request.method !== "GET") { sendJson(response,405,{ok:false}); return; }
@@ -959,6 +1061,12 @@ const server = http.createServer(async (request, response) => {
     const session=await isActiveAdvisorSession(advisor)?advisor:await isActiveAdminSession(admin)?admin:null;
     if(!session)return sendJson(response,403,{ok:false});
     try{await apiCorrectAdvisory(request,response,session,correctionMatch[1]);}catch(error){console.error('Corrección:',error.message);sendJson(response,503,{ok:false,message:'No se pudo guardar la corrección.'})}return;
+  }
+  if(requestUrl.pathname==='/api/advisory-draft'){
+    if(!database)return sendJson(response,503,{ok:false});
+    const session=requireSession(request,response);if(!session)return;
+    if(!await isActiveAdvisorSession(session))return sendJson(response,403,{ok:false});
+    try{await apiDraft(request,response,session)}catch(e){console.error('Draft:',e.message);sendJson(response,503,{ok:false})}return;
   }
   if (requestUrl.pathname === "/api/advisories") {
     if (!database) { sendJson(response, 503, { ok: false, code: "database_not_configured" }); return; }

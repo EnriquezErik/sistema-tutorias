@@ -5,7 +5,7 @@ const server=read('server.js'),migration=read('database/005_indices_crecimiento.
 assert(server.includes('/api/admin/advisories'),'Debe existir el servicio administrativo paginado');
 assert(server.includes('/api/admin/statistics'),'Debe existir el servicio de estadísticas agregadas');
 assert(server.includes('count(*) over()'),'La paginación debe informar el total sin otra consulta completa');
-assert(server.includes('Math.min(parsed, maximum)'),'Los límites solicitados deben estar acotados');
+assert(require('../lib/pagination').positiveInteger('999',50,200)===200,'Los límites solicitados deben estar acotados');
 assert(server.includes('count(distinct a.student_id)'),'Las estadísticas deben calcularse en PostgreSQL');
 assert(migration.includes('if not exists'),'Los índices deben ser idempotentes');
 assert(!/\b(drop|truncate)\b/i.test(migration),'La migración no debe borrar estructuras ni registros');

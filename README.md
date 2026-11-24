@@ -45,3 +45,18 @@ Consulte `SEGURIDAD_Y_DESPLIEGUE.md`. Son obligatorias en Render las variables `
 - `/api/bootstrap` entrega los catálogos activos.
 
 La v40 debe conservarse sin modificaciones como punto de recuperación.
+
+## Actualización v1.7.21
+Consultar RELEASE_NOTES_v1.7.21.md antes de desplegar; requiere migración 007 y validación TLS.
+
+### v1.7.24
+Expediente individual en Administración y alta de materia desde Registro al finalizar. Requiere migraciones 001–008; sin nueva migración. Véase RELEASE_NOTES_v1.7.24.md.
+
+## v1.7.33 — candidata institucional
+Consultar `docs/ARQUITECTURA.md`, `docs/MIGRACIONES.md`, `docs/RESPALDO_Y_RECUPERACION.md`, `docs/LISTA_LIBERACION.md` y `ESTADO_DE_LIBERACION.md`. Diagnóstico manual de solo lectura: `scripts/verificar_esquema.sql`.
+
+## v1.7.34 — candidata parcial
+Consultar RELEASE_NOTES_v1.7.34.md y PRUEBAS_v1.7.34.txt.
+
+## v1.7.36 — candidata parcial
+Consultar RELEASE_NOTES_v1.7.36.md y PRUEBAS_v1.7.36.txt. La carga administrativa es una lectura transaccional única; la transferencia masiva sigue pendiente de optimización.

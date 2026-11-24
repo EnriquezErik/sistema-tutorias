@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Administración · Asesorías</title>
 <link rel="icon" type="image/png" href="/logo-bis-universities.png">
-<link rel="stylesheet" href="styles.css?v=1.7.19">
+<link rel="stylesheet" href="styles.css?v=1.7.36">
 </head>
 <body class="locked">
 <!-- Acceso y recuperación de la cuenta administradora. -->
@@ -35,7 +35,7 @@
 </header>
 
 <nav class="admin-nav" aria-label="Navegación administrativa">
-  <a href="#inicio" data-admin-target="inicio">Inicio</a><a href="#estadisticas" data-admin-target="estadisticas">Estadísticas</a><a href="#reportes" data-admin-target="reportes">Historial y reportes</a><a href="#catalogos" data-admin-target="catalogos">Catálogos</a><a href="#seguridad" data-admin-target="seguridad">Seguridad</a><button type="button" id="syncDataBtn" class="secondary">Actualizar datos</button>
+  <a href="#inicio" data-admin-target="inicio">Inicio</a><a href="#estadisticas" data-admin-target="estadisticas">Estadísticas</a><a href="#reportes" data-admin-target="reportes">Historial y reportes</a><a href="#catalogos" data-admin-target="catalogos">Catálogos</a><a href="#seguridad" data-admin-target="seguridad">Seguridad</a><a href="#bitacora" data-admin-target="bitacora">Bitácora y recuperación</a><a href="#expediente" data-admin-target="expediente">Expediente individual</a><a href="#indicadores" data-admin-target="indicadores">Indicadores académicos</a><a href="#comparacion" data-admin-target="comparacion">Comparación de cuatrimestres</a><button type="button" id="syncDataBtn" class="secondary">Actualizar datos</button>
 </nav>
 
 <main class="container admin-container">
@@ -131,10 +131,40 @@
     </form>
     <div id="securityMsg" class="muted" aria-live="polite"></div>
   </section>
+<section class="card" id="comparacion" data-admin-view="comparacion" hidden>
+<div class="section-title">Comparación estadística entre cuatrimestres</div>
+<p class="muted">Comparación descriptiva de registros no anulados. El periodo base es el denominador de la variación. Los periodos parciales no se ajustan por duración.</p>
+<div class="toolbar"><label>Periodo base <select id="compareBase"></select></label><label>Periodo comparado <select id="compareTarget"></select></label></div>
+<p id="compareMessage" role="status" aria-live="polite"></p>
+<h3>Resumen general</h3><div class="table-wrap"><table><thead><tr><th>Indicador</th><th>Base</th><th>Comparado</th><th>Diferencia</th><th>Variación (%)</th></tr></thead><tbody id="compareMetrics"></tbody></table></div>
+<h3>Demanda por materia</h3><div class="table-wrap"><table><thead><tr><th>Materia</th><th>Base</th><th>Comparado</th><th>Diferencia</th><th>Variación (%)</th></tr></thead><tbody id="compareSubjects"></tbody></table></div>
+<h3>Motivos de atención</h3><div class="table-wrap"><table><thead><tr><th>Motivo</th><th>Base</th><th>Comparado</th><th>Diferencia</th><th>Variación (%)</th></tr></thead><tbody id="compareReasons"></tbody></table></div>
+</section>
+<section class="card" id="indicadores" data-admin-view="indicadores" hidden>
+<div class="section-title">Indicadores de seguimiento académico</div><p class="muted">Indicadores descriptivos de asesorías no anuladas. La recurrencia no implica riesgo académico ni diagnóstico.</p>
+<div class="toolbar"><label>Cuatrimestre <select id="indicatorPeriod"></select></label><label>Recurrencia mínima <select id="indicatorThreshold"><option value="2">2 asesorías</option><option value="3">3 asesorías</option><option value="5">5 asesorías</option></select></label></div>
+<p id="indicatorSummary" role="status" aria-live="polite"></p>
+<h3>Alumnos con asesorías recurrentes</h3><div class="table-wrap"><table><thead><tr><th>Matrícula</th><th>Alumno</th><th>Asesorías</th><th>Duración</th></tr></thead><tbody id="indicatorStudents"></tbody></table></div>
+<h3>Demanda por materia</h3><div class="table-wrap"><table><thead><tr><th>Materia</th><th>Asesorías</th><th>Duración</th></tr></thead><tbody id="indicatorSubjects"></tbody></table></div>
+<h3>Motivos de atención</h3><div class="table-wrap"><table><thead><tr><th>Motivo</th><th>Asesorías</th><th>Duración</th></tr></thead><tbody id="indicatorReasons"></tbody></table></div>
+<h3>Distribución por carrera</h3><div class="table-wrap"><table><thead><tr><th>Carrera</th><th>Asesorías</th><th>Duración</th></tr></thead><tbody id="indicatorCareers"></tbody></table></div>
+<h3>Alumnos canalizados a psicopedagogía</h3><div class="table-wrap"><table><thead><tr><th>Matrícula</th><th>Alumno</th><th>Canalizaciones</th></tr></thead><tbody id="indicatorReferrals"></tbody></table></div>
+</section>
+<section class="card" id="expediente" data-admin-view="expediente" hidden>
+<div class="section-title">Expediente académico individual</div><p class="muted">Consulta por matrícula exacta, de todos los cuatrimestres. Solo asesorías no anuladas.</p>
+<form id="studentFileForm" class="toolbar"><label>Matrícula <input id="studentFileEnrollment" maxlength="40" required></label><button class="primary" type="submit">Consultar expediente</button></form>
+<p id="studentFileSummary" role="status" aria-live="polite"></p><div class="table-wrap"><table><thead><tr><th>Cuatrimestre</th><th>Fecha</th><th>Alumno</th><th>Carrera</th><th>Grupo</th><th>Turno</th><th>Sexo</th><th>Materia</th><th>Asesor</th><th>Motivo</th><th>Duración</th></tr></thead><tbody id="studentFileRows"></tbody></table></div></section>
+<section class="card" id="bitacora" data-admin-view="bitacora" hidden>
+<div class="section-title">Bitácora y recuperación</div><p class="muted">Consulta exclusiva de Administración. Restaurar reincorpora la asesoría a su cuatrimestre original.</p>
+<div class="toolbar"><label>Vista <select id="auditView"><option value="audit">Bitácora de cambios</option><option value="cancelled">Asesorías anuladas</option></select></label><button class="secondary" id="auditRefresh" type="button">Actualizar</button></div>
+<p id="auditMessage" role="status" aria-live="polite"></p><div class="table-wrap"><table><thead id="auditHead"></thead><tbody id="auditRows"></tbody></table></div>
+<div class="toolbar"><button class="secondary" id="auditPrev" type="button">Anterior</button><span id="auditPage"></span><button class="secondary" id="auditNext" type="button">Siguiente</button></div>
+</section>
+<dialog id="restoreDialog" aria-labelledby="restoreTitle"><form id="restoreForm"><h3 id="restoreTitle">Restaurar asesoría</h3><p id="restoreLabel"></p><p>El registro volverá a contabilizarse. Compruebe que no sea un duplicado.</p><label>Justificación<textarea id="restoreReason" required maxlength="500"></textarea></label><p id="restoreMessage" role="status"></p><div class="toolbar"><button type="button" class="secondary" id="restoreCancel">Cancelar</button><button type="submit" class="primary" id="restoreSave">Restaurar</button></div></form></dialog>
 </main>
 
-<footer class="site-footer"><span id="adminFooterText">© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.</span><br><span id="adminVersion">Versión 1.7.19 · Administración</span></footer>
+<footer class="site-footer"><span id="adminFooterText">© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.</span><br><span id="adminVersion">Versión 1.7.36 · Administración</span></footer>
 <div id="adminPrintReport" class="print-only"></div>
 <script src="exceljs.min.js?v=4.4.0"></script>
-<script src="admin.js?v=1.7.19"></script>
+<script src="admin.js?v=1.7.36"></script>
 </body></html>

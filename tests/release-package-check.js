@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const pkg=require('../package.json');
+const lock=require('../package-lock.json');
+assert.equal(pkg.version,lock.version);assert.equal(pkg.version,lock.packages[''].version);
+for(const f of ['index.html','admin.html','admin.js']) assert(fs.readFileSync(f,'utf8').includes(pkg.version),f);
+for(const f of ['ARQUITECTURA','MIGRACIONES','RESPALDO_Y_RECUPERACION','LISTA_LIBERACION']) assert(fs.statSync(`docs/${f}.md`).size>100);
+const sql=fs.readFileSync('scripts/verificar_esquema.sql','utf8');
+assert(/begin read only;/i.test(sql));assert(!/\b(insert|update|delete|drop|alter|truncate)\b/i.test(sql));
+assert.equal(fs.readdirSync('database').filter(x=>x.endsWith('.sql')).length,9);
+console.log('Paquete institucional: OK');

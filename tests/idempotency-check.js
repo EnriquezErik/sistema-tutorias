@@ -1,0 +1,7 @@
+const assert=require('assert'),fs=require('fs'),vm=require('vm');
+const app=fs.readFileSync('app.js','utf8'),server=fs.readFileSync('server.js','utf8');
+const fn=server.slice(server.indexOf('async function apiCreateAdvisory'),server.indexOf('async function ensureStudentCatalog'));
+const calls=[];let result;const id='12345678-1234-4234-8234-123456789abc';
+const ctx={require,readJsonBody:async()=>({id,matricula:'1',nombre:'Prueba',sexo:'Hombre',carrera:'C',grupo:'G',turno:'Matutino',materia:'M',motivo:'R',periodo:'P',inicio:'2026-11-24T10:00:00Z',fin:'2026-11-24T11:00:00Z'}),sendJson:(r,status,body)=>{result={status,body}},database:{connect:async()=>({query:async(q,args)=>{calls.push(q);return {rows:q.includes('where advisor_id=$1 and operation_id=$2')?[{id:'existing'}]:[]}},release(){}})}};
+vm.createContext(ctx);vm.runInContext(fn,ctx);
+(async()=>{await ctx.apiCreateAdvisory({}, {}, {id:'advisor'});assert.equal(result.status,200);assert.equal(result.body.id,'existing');assert.equal(result.body.replayed,true);assert(!calls.some(q=>q.includes('insert into')));assert(calls[1].includes('pg_advisory_xact_lock'));assert(app.includes('id:operationId,...sd'));assert(app.includes('const payload={operationId,start:'));assert(fs.readFileSync('database/007_operacion_unica.sql','utf8').includes('unique index'));assert(server.includes('rejectUnauthorized: true'));console.log('Reintento: simulación del servidor y comprobaciones estáticas OK');})().catch(e=>{console.error(e);process.exitCode=1});

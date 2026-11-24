@@ -1,0 +1,10 @@
+const assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
+const {resolveDraftPeriod}=require('../lib/draft-period');
+const app=fs.readFileSync('app.js','utf8');
+const ctx=vm.createContext({Date,Intl,appConfig:()=>({timezone:'America/Mexico_City'})});
+for(const name of ['localDateValue','parseInstitutionalTime','draftContent'])vm.runInContext(app.split('\n').find(l=>l.startsWith('function '+name+'(')),ctx);
+assert.equal(ctx.localDateValue('2026-11-24T02:00:00Z'),'2026-11-23T20:00:00');
+assert.equal(ctx.parseInstitutionalTime('2026-11-23T20:00').toISOString(),'2026-11-24T02:00:00.000Z');
+assert(Number.isNaN(+ctx.parseInstitutionalTime('2026-02-30T08:00')));
+assert.notEqual(ctx.draftContent({fields:{},start:'a'}),ctx.draftContent({fields:{},start:'b'}));
+(async()=>{let args;const old={periodId:null,period:'Anterior',start:'2026-09-01T15:00:00Z'};const incoming={periodId:'new',period:'Nuevo',start:'2027-01-01T15:00:00Z'};const row={id:'original',name:'Anterior'};const client={query:async(sql,values)=>{args=values;assert(!sql.includes('active=true'));return {rows:[row]}}};assert.deepEqual(await resolveDraftPeriod(client,incoming,old),row);assert.deepEqual(args,[null,'Anterior',old.start]);assert.deepEqual(await resolveDraftPeriod({query(){throw Error('unexpected query')}},incoming,{...old,periodId:'original'}),row);assert.equal(await resolveDraftPeriod({query:async()=>({rows:[row,{id:'ambiguous',name:'Otro'}]})},incoming,{start:old.start}),null);assert.equal(await resolveDraftPeriod({query:async()=>({rows:[]})},incoming,old),null);console.log('Periodo histórico, ambigüedad, horario institucional y comparación de borradores: OK (simulación)')})().catch(e=>{console.error(e);process.exitCode=1});
