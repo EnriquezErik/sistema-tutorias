@@ -1,0 +1,6 @@
+Comprobaciones ejecutadas para la versión 1.7.37
+- npm test: aprobado
+- node --check server.js: aprobado
+- node --check app.js: aprobado
+- node --check admin.js: aprobado
+- Verificación visual estática de index.html y admin.html: logo IEHL integrado en encabezado.

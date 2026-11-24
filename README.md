@@ -58,5 +58,5 @@ Consultar `docs/ARQUITECTURA.md`, `docs/MIGRACIONES.md`, `docs/RESPALDO_Y_RECUPE
 ## v1.7.34 — candidata parcial
 Consultar RELEASE_NOTES_v1.7.34.md y PRUEBAS_v1.7.34.txt.
 
-## v1.7.36 — candidata parcial
-Consultar RELEASE_NOTES_v1.7.36.md y PRUEBAS_v1.7.36.txt. La carga administrativa es una lectura transaccional única; la transferencia masiva sigue pendiente de optimización.
+## v1.7.37 — candidata parcial
+Consultar RELEASE_NOTES_v1.7.37.md y PRUEBAS_v1.7.37.txt. La carga administrativa es una lectura transaccional única; la transferencia masiva sigue pendiente de optimización.
