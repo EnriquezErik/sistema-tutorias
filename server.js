@@ -686,10 +686,12 @@ function advisoryRow(row) {
   };
 }
 
-async function apiFindStudent(request, response, enrollment) {
+async function apiFindStudent(request, response, searchTerm) {
   const session = requireSession(request, response);
   if (!session) return;
   if (!await isActiveAdvisorSession(session)) return sendJson(response,403,{ok:false,code:"inactive_account"});
+  const term = String(searchTerm || "").trim();
+  if (!term) return sendJson(response, 200, { ok: true, student: null, matches: [] });
   const result = await database.query(`
     select s.enrollment::text, s.full_name, s.sex, s.shift,
            c.code::text as career, g.name::text as group_name,
@@ -700,10 +702,16 @@ async function apiFindStudent(request, response, enrollment) {
       from public.students s
       join public.careers c on c.id = s.career_id
       join public.student_groups g on g.id = s.group_id
-     where s.active = true and lower(s.enrollment::text) = lower($1)
-     limit 1
-  `, [enrollment]);
-  sendJson(response, 200, { ok: true, student: result.rows[0] || null });
+     where s.active = true
+       and (lower(s.enrollment::text) = lower($1)
+            or s.full_name ilike ('%' || $1 || '%'))
+     order by case when lower(s.enrollment::text) = lower($1) then 0 else 1 end,
+              s.full_name
+     limit 20
+  `, [term]);
+  const matches = result.rows || [];
+  if (matches.length === 1) return sendJson(response, 200, { ok: true, student: matches[0], matches });
+  sendJson(response, 200, { ok: true, student: null, matches });
 }
 
 async function apiListAdvisories(request, response, session) {

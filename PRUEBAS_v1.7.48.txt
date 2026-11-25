@@ -1,0 +1,13 @@
+PRUEBAS SUGERIDAS — v1.7.48
+
+1. Ingresar al Registro como asesor.
+2. Buscar un alumno usando su matrícula exacta; comprobar que carga los datos y permite iniciar/finalizar asesoría.
+3. Buscar por nombre completo; comprobar que carga el alumno correcto.
+4. Buscar por apellido o fragmento de nombre; comprobar coincidencias. Si no hay coincidencia por nombre, verificar que no se convierta en un registro de alumno nuevo.
+5. Buscar un nombre compartido por varios alumnos; comprobar que aparece la selección con nombre y matrícula.
+6. Buscar una matrícula inexistente; comprobar que el flujo de alumno nuevo sigue funcionando.
+7. En Registro, pulsar Ver/Ocultar y confirmar que solo cambia la visualización de la contraseña.
+8. En Administración, repetir la prueba del botón Ver/Ocultar en el acceso.
+9. Verificar historial, impresión, exportación, catálogos y guardado de asesoría para confirmar regresión.
+
+No se ejecutaron pruebas contra la base de datos real desde este paquete.
