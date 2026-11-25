@@ -369,3 +369,5 @@ input,select,textarea,button{min-width:0;max-width:100%}
 .advisory-compact .student-search-row{grid-template-columns:minmax(0,1fr)}
 .advisory-compact .student-search-action{justify-self:end}
 }
+
+.recovery-option{margin:8px 0;font-size:12px;color:#475569}.recovery-option summary{cursor:pointer;width:fit-content}.recovery-option .recovery-choice{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px}.recovery-option input[type=checkbox]{display:inline-block;width:16px;height:16px;min-height:0;flex:0 0 16px;margin:0;padding:0}.recovery-option p{margin:6px 0;line-height:1.5}@media print{.recovery-option{display:none}}
