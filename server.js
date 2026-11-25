@@ -692,6 +692,7 @@ async function apiFindStudent(request, response, searchTerm) {
   if (!await isActiveAdvisorSession(session)) return sendJson(response,403,{ok:false,code:"inactive_account"});
   const term = String(searchTerm || "").trim();
   if (!term) return sendJson(response, 200, { ok: true, student: null, matches: [] });
+  const mode = new URL(request.url,"http://localhost").searchParams.get("mode") || "both";
   const result = await database.query(`
     select s.enrollment::text, s.full_name, s.sex, s.shift,
            c.code::text as career, g.name::text as group_name,
@@ -703,12 +704,12 @@ async function apiFindStudent(request, response, searchTerm) {
       join public.careers c on c.id = s.career_id
       join public.student_groups g on g.id = s.group_id
      where s.active = true
-       and (lower(s.enrollment::text) = lower($1)
-            or s.full_name ilike ('%' || $1 || '%'))
+       and (($2 <> 'name' and lower(s.enrollment::text) = lower($1))
+            or ($2 <> 'enrollment' and strpos(translate(lower(s.full_name),'áéíóúü','aeiouu'),translate(lower($1),'áéíóúü','aeiouu')) > 0))
      order by case when lower(s.enrollment::text) = lower($1) then 0 else 1 end,
               s.full_name
      limit 20
-  `, [term]);
+  `, [term, mode]);
   const matches = result.rows || [];
   if (matches.length === 1) return sendJson(response, 200, { ok: true, student: matches[0], matches });
   sendJson(response, 200, { ok: true, student: null, matches });
