@@ -731,9 +731,9 @@ async function apiListAdvisories(request, response, session) {
       join public.advisory_reasons r on r.id = a.reason_id
       join public.periods p on p.id = a.period_id
       join public.app_users u on u.id = a.advisor_id
-     where ($2::boolean or a.advisor_id = $1::uuid) and a.status <> 'CANCELADA'
+     where a.status <> 'CANCELADA'
      order by a.started_at desc
-  `, [session.id, session.rol === "admin"]);
+  `, []);
   sendJson(response, 200, { ok: true, advisories: result.rows.map(advisoryRow) });
 }
 
@@ -836,7 +836,7 @@ async function apiCreateAdvisory(request, response, session) {
     if(!draft||draft.operation_id!==operationId||!Number.isSafeInteger(body.revision)||Number(draft.revision)!==body.revision||!matchesFinalDraft(draft.payload,body))throw Object.assign(new Error('draft_conflict'),{statusCode:400,publicMessage:'No existe un respaldo confirmado que coincida con la asesoría. Respalde los datos o recargue antes de guardar.'});
     if((await client.query("select 1 from public.audit_log where user_id=$1 and action='DRAFT_DISCARDED' and entity_id=$2",[session.id,operationId])).rowCount)throw Object.assign(new Error('discarded'),{statusCode:400,publicMessage:'El borrador fue descartado.'});
     const periodId=draft?.payload.periodId||body.periodId||null;
-    if (body.nuevoCatalogo === true) await ensureStudentCatalog(client,session,data.career,data.group);
+    await ensureStudentCatalog(client,session,data.career,data.group);
     const group = await client.query(`
       select g.id, c.id as career_id
         from public.student_groups g
@@ -854,7 +854,7 @@ async function apiCreateAdvisory(request, response, session) {
       });
     }
 
-    if(body.nuevaMateria===true) await ensureAdvisorySubject(client,session,data.subject);
+    await ensureAdvisorySubject(client,session,data.subject);
     const catalogs = await client.query(`
       select
         (select id from public.subjects where active = true and lower(trim(name::text)) = lower(trim($1)) limit 1) as subject_id,
@@ -928,6 +928,7 @@ async function apiCorrectAdvisory(request,response,session,id) {
   const body=await readJsonBody(request,32768).catch(()=>null);
   const reason=String(body?.justificacion||'').trim();
   if(!body || !reason || reason.length>500) return sendJson(response,400,{ok:false,message:'Indique un motivo de hasta 500 caracteres.'});
+  if(body.action==='cancel' && session.rol!=='admin') return sendJson(response,403,{ok:false,message:'Solo Administración puede anular asesorías.'});
   const client=await connectTransaction(database);
   const fail=(message)=>{throw Object.assign(new Error(message),{statusCode:400})};
   try {
@@ -949,6 +950,7 @@ async function apiCorrectAdvisory(request,response,session,id) {
       const fields=['matricula','nombre','sexo','carrera','grupo','turno','materia','motivo','comentarios'].map(k=>String(body[k]??'').trim());
       const [enrollment,name,sex,career,group,shift,subject,motive,comments]=fields;
       if(fields.slice(0,8).some(x=>!x||x==='Seleccione')||fields.some((x,i)=>x.length>[40,160,10,30,80,20,160,160,2000][i])||!['Hombre','Mujer'].includes(sex)||!['Matutino','Vespertino'].includes(shift)) fail('Datos inválidos.');
+      if(session.rol==='advisor'){await ensureStudentCatalog(client,session,career,group);await ensureAdvisorySubject(client,session,subject);}
       const cat=await client.query(`select g.id as gid,c.id as cid,(select id from public.subjects where name=$3) as sid,(select id from public.advisory_reasons where name=$4) as rid from public.student_groups g join public.careers c on c.id=g.career_id where c.code=$1 and g.name=$2`,[career,group,subject,motive]);
       const x=cat.rows[0];if(!x?.sid||!x?.rid) fail('Revise carrera, grupo, materia y motivo.');
       const target=await client.query('select * from public.students where enrollment=$1 for update',[enrollment]);
@@ -964,7 +966,7 @@ async function apiCorrectAdvisory(request,response,session,id) {
     const after=(await client.query('select * from public.advisories where id=$1',[id])).rows[0];
     await client.query('insert into public.audit_log(user_id,username,action,entity_type,entity_id,details) values($1,$2,$3,$4,$5,$6::jsonb)',[session.id,session.usuario,'ADVISORY_'+body.action.toUpperCase(),'advisory',id,JSON.stringify({reason,before:old,after,changes:body})]);
     await client.query('commit');sendJson(response,200,{ok:true});
-  }catch(error){await client.query('rollback');if(error.statusCode===400)sendJson(response,400,{ok:false,message:error.message});else throw error;}finally{client.release()}
+  }catch(error){await client.query('rollback');if(error.statusCode===400)sendJson(response,400,{ok:false,message:error.publicMessage||error.message});else throw error;}finally{client.release()}
 }
 
 // Bitácora y restauración: acceso exclusivo del administrador activo.
