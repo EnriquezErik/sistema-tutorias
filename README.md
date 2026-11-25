@@ -84,3 +84,6 @@ Consultar RELEASE_NOTES_v1.7.44.md y PRUEBAS_v1.7.44.txt. Módulo HTTP único; d
 
 ## v1.7.46
 Consultar RELEASE_NOTES_v1.7.46.md. Aplicar migración aditiva 010 antes del despliegue.
+
+## v1.7.47
+Consultar RELEASE_NOTES_v1.7.47.md. Sin nuevas migraciones; conservar 001–010.

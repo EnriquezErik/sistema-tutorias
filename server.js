@@ -291,6 +291,22 @@ async function apiLogin(request, response) {
   await clearLoginFailures(rateKey);
   await audit(request,user,"LOGIN_SUCCESS","account",user.id,{area});
   await database.query("select token_hash from public.revoked_sessions limit 0");
+    // LIMIT 0 valida existencia, columnas y permisos de lectura sin transferir datos.
+    await database.query(`select
+      (select operation_fingerprint from public.advisories limit 0),
+      (select operation_id from public.advisories limit 0),
+      (select student_snapshot from public.advisories limit 0),
+      (select revision from public.advisory_drafts limit 0),
+      (select payload from public.advisory_drafts limit 0),
+      (select id from public.app_users limit 0),
+      (select id from public.students limit 0),
+      (select id from public.careers limit 0),
+      (select id from public.student_groups limit 0),
+      (select id from public.periods limit 0),
+      (select id from public.subjects limit 0),
+      (select id from public.advisory_reasons limit 0),
+      (select timezone from public.institution_settings limit 0),
+      (select id from public.audit_log limit 0)`);
   const token = signSession(user);
   const cookieName = area === "admin" ? "admin_session" : "advisor_session";
   response.setHeader("Set-Cookie", `${cookieName}=${encodeURIComponent(token)}; Max-Age=${SESSION_MAX_AGE_SECONDS}; Path=/; HttpOnly; Secure; SameSite=Strict`);
@@ -315,15 +331,48 @@ async function isActiveAdminSession(session){
   return result.rowCount===1 && !await isSessionRevoked(session);
 }
 
+// Presupuesto monotónico de transacción: las sentencias comparten un límite,
+// incluyendo la espera de conexión. ROLLBACK queda permitido aun si vence.
+async function connectTransaction(pool, budgetMs = 45000, clock = () => performance.now()) {
+  const deadline = clock() + budgetMs;
+  const raw = await pool.connect();
+  let tail = Promise.resolve(), failure = null, active = false, released = false;
+  const query = (sql, args) => {
+    const command = String(sql).trim().toUpperCase();
+    const rollback = command === 'ROLLBACK';
+    const run = tail.catch(() => {}).then(async () => {
+      if (released) throw Error('transaction_released');
+      if (rollback) { const result = await raw.query(sql, args); active = false; failure = null; return result; }
+      if (failure) throw failure;
+      try {
+        const remaining = Math.floor(deadline - clock());
+        if (remaining <= 0) throw Object.assign(Error('transaction_deadline'), {code:'57014'});
+        if (active) await raw.query("select set_config('statement_timeout',$1,true)", [String(Math.min(25000, remaining))]);
+        if (clock() >= deadline) throw Object.assign(Error('transaction_deadline'), {code:'57014'});
+        const result = await raw.query(sql, args);
+        if (command.startsWith('BEGIN')) active = true;
+        if (command === 'COMMIT') active = false;
+        return result;
+      } catch (error) { failure = error; throw error; }
+    });
+    tail = run;
+    return run;
+  };
+  return {query, release() { if (released) return; released = true; raw.release(active || failure ? Error('transaction_not_clean') : undefined); }};
+}
+
 async function apiAdminData(request, response) {
   if (!await requireAdmin(request, response)) return;
   const session = readSession(request, "admin_session");
-  const client = await database.connect();
-  const periodFilter = new URL(request.url, "http://localhost").searchParams.get("period");
+  const params = new URL(request.url, "http://localhost").searchParams;
+  const periodFilter = params.get("period");
+  const scopedPeriod = periodFilter && periodFilter !== "all";
+  const client = await connectTransaction(database);
+  let payload;
   try {
   await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
   const [advisories, students, users, bootstrap, periodsAdmin, groupsAdmin, careersAdmin, subjectsAdmin, reasonsAdmin] = await Promise.all([
-    (new URL(request.url, "http://localhost").searchParams.get("metadata") === "1" ? Promise.resolve({rows:[]}) : client.query(`
+    (params.get("metadata") === "1" ? Promise.resolve({rows:[]}) : client.query(`
       select a.id, s.enrollment::text, coalesce(a.student_snapshot->>'name',s.full_name) as student_name, coalesce(a.student_snapshot->>'sex',s.sex) as sex, coalesce(a.student_snapshot->>'shift',s.shift) as shift,
              coalesce(a.student_snapshot->>'career',c.code::text) as career_code, coalesce(a.student_snapshot->>'group',g.name::text) as group_name,
              sub.name::text as subject_name, r.name::text as reason_name,
@@ -339,9 +388,9 @@ async function apiAdminData(request, response) {
         join public.periods p on p.id = a.period_id
         join public.app_users u on u.id = a.advisor_id
        where a.status <> 'CANCELADA'
-         and ($1::text is null or p.name=$1)
+         ${scopedPeriod ? "and p.name=$1" : ""}
        order by a.created_at desc, a.id desc
-    `, [periodFilter && periodFilter !== 'all' ? periodFilter : null])),
+    `, scopedPeriod ? [periodFilter] : [])),
     client.query(`select s.enrollment::text as matricula, s.full_name as nombre, s.sex as sexo,
                            c.code::text as carrera, g.name::text as grupo, s.shift as turno
                       from public.students s join public.careers c on c.id=s.career_id
@@ -360,15 +409,16 @@ async function apiAdminData(request, response) {
     client.query("select id,name::text,active from public.advisory_reasons order by name")
   ]);
   await client.query("COMMIT");
-  await sendJson(response, 200, { ok: true, user: session, data: {
+  payload = { ok: true, user: session, data: {
     advisories: advisories.rows.map(advisoryRow), students: students.rows, users: users.rows,
     catalogs: bootstrap, periodsAdmin: periodsAdmin.rows, groupsAdmin: groupsAdmin.rows,
     catalogItems: { carreras: careersAdmin.rows, materias: subjectsAdmin.rows, motivos: reasonsAdmin.rows }
-  }}, false, request);
+  }};
   } catch (error) {
     try { await client.query("ROLLBACK"); } catch (_) {}
     throw error;
   } finally { client.release(); }
+  await sendJson(response, 200, payload, false, request);
 }
 
 // CONSULTAS ESCALABLES: servicios opcionales para reportes paginados y estadísticas agregadas.
@@ -402,11 +452,13 @@ async function apiAdminAdvisoriesPage(request, response, requestUrl) {
   const cutoff=requestUrl.searchParams.get('cutoff')||new Date().toISOString();
   if(!Number.isFinite(Date.parse(cutoff)) || Date.parse(cutoff)>Date.now()+60000)return sendJson(response,400,{ok:false});
   {values.push(cutoff);filters.push(`a.created_at <= $${values.length}::timestamptz`);}
+  const baseFilters = filters.slice(), baseValues = values.slice();
   if(cursor){const parts=cursor.split('|');if(parts.length!==2||!Number.isFinite(Date.parse(parts[0]))||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parts[1]))return sendJson(response,400,{ok:false});values.push(...parts);filters.push(`(a.created_at,a.id)<($${values.length-1}::timestamptz,$${values.length}::uuid)`);}
   const countRequested=requestUrl.searchParams.get("count")!=="0";
   values.push(limit+(countRequested?0:1), offset);
   const where = filters.length ? `where ${filters.join(" and ")}` : "";
-  const client = await database.connect();
+  const client = await connectTransaction(database);
+  let payload;
   try {
   await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
   const result = await client.query(`
@@ -428,11 +480,11 @@ async function apiAdminAdvisoriesPage(request, response, requestUrl) {
      order by a.created_at desc, a.id desc
      limit $${values.length - 1} offset $${values.length}
   `, values);
-  // count(*) over() no devuelve filas cuando offset supera el último registro.
-  // Una consulta COUNT separada solo en esa situación conserva el total real.
-  let total = result.rows[0]?.total_count;
-  if (countRequested && total === undefined) {
-    const countValues = values.slice(0, -2);
+  // El conteo de ventana mide las filas restantes desde el cursor.
+  const remaining = result.rows[0]?.total_count ?? 0;
+  let total = countRequested ? remaining : null;
+  if (countRequested && (cursor || !result.rows.length)) {
+    const countValues = baseValues;
     const countResult = await client.query(`
       select count(*)::integer as total
         from public.advisories a
@@ -443,15 +495,16 @@ async function apiAdminAdvisoriesPage(request, response, requestUrl) {
         join public.advisory_reasons r on r.id=a.reason_id
         join public.periods p on p.id=a.period_id
         join public.app_users u on u.id=a.advisor_id
-        ${where}
+        where ${baseFilters.join(" and ")}
     `, countValues);
     total = countResult.rows[0]?.total || 0;
   }
-  const hasMore=countRequested?offset+result.rows.length<total:result.rows.length>limit;
+  const hasMore=countRequested?offset+result.rows.length<(cursor?remaining:total):result.rows.length>limit;
   if(!countRequested)result.rows=result.rows.slice(0,limit);
   await client.query("COMMIT");
-  sendJson(response, 200, { ok:true, page:{limit,offset,total,cutoff,nextCursor:result.rows.length?result.rows.at(-1).cursor_time+'|'+result.rows.at(-1).id:null,hasMore}, advisories:result.rows.map(advisoryRow) });
+  payload = { ok:true, page:{limit,offset,total,remaining:countRequested?(cursor?remaining:Math.max(0,total-offset)):null,cutoff,nextCursor:result.rows.length?result.rows.at(-1).cursor_time+'|'+result.rows.at(-1).id:null,hasMore}, advisories:result.rows.map(advisoryRow) };
   } catch(error) { try { await client.query("ROLLBACK"); } catch (_) {} throw error; } finally { client.release(); }
+  await sendJson(response, 200, payload);
 }
 
 async function apiAdminStatistics(request, response, requestUrl) {
@@ -687,7 +740,7 @@ async function apiDraft(request,response,session){
   if(!b||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(b.operationId||'')||(request.method==='PUT'&&(!Number.isFinite(Date.parse(b.start))||!b.fields||typeof b.fields!=='object')))return sendJson(response,400,{ok:false});
   const fields={};for(const k of ['matricula','nombre','sexo','carrera','grupo','turno','materia','motivo','psico','comentarios'])fields[k]=String(b.fields?.[k]||'').slice(0,2000);
   const payload={operationId:b.operationId,start:b.start,fields,newStudent:!!b.newStudent,manualCatalogUsed:!!b.manualCatalogUsed,newSubject:!!b.newSubject,activeCorrection:b.activeCorrection||null,manualEnd:b.manualEnd||null,period:b.period||null,periodId:b.periodId||null};
-  const c=await database.connect();try{await c.query('begin');await c.query('select pg_advisory_xact_lock(hashtextextended($1,0))',[session.id+':draft']);
+  const c=await connectTransaction(database);try{await c.query('begin');await c.query('select pg_advisory_xact_lock(hashtextextended($1,0))',[session.id+':draft']);
     const done=await c.query('select id from public.advisories where advisor_id=$1 and operation_id=$2',[session.id,b.operationId]);
     if(done.rows.length){await c.query('commit');return sendJson(response,200,{ok:true,completed:true});}
     const old=(await c.query('select operation_id,revision,payload from public.advisory_drafts where advisor_id=$1 for update',[session.id])).rows[0];
@@ -752,7 +805,7 @@ async function apiCreateAdvisory(request, response, session) {
     startedAt: new Date(body.inicio),
     endedAt: new Date(body.fin)
   };
-  const client = await database.connect();
+  const client = await connectTransaction(database);
   try {
     await client.query("begin");
     await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))",[session.id+":"+operationId]);
@@ -857,7 +910,7 @@ async function apiCorrectAdvisory(request,response,session,id) {
   const body=await readJsonBody(request,32768).catch(()=>null);
   const reason=String(body?.justificacion||'').trim();
   if(!body || !reason || reason.length>500) return sendJson(response,400,{ok:false,message:'Indique un motivo de hasta 500 caracteres.'});
-  const client=await database.connect();
+  const client=await connectTransaction(database);
   const fail=(message)=>{throw Object.assign(new Error(message),{statusCode:400})};
   try {
     await client.query('begin');
@@ -910,7 +963,7 @@ async function apiRestoreAdvisory(request,response,id) {
   const body=await readJsonBody(request,32768).catch(()=>null);
   const reason=typeof body?.reason==='string'?body.reason.trim():'';
   if(!reason||reason.length>500)return sendJson(response,400,{ok:false,message:'Indique un motivo de hasta 500 caracteres.'});
-  const client=await database.connect();
+  const client=await connectTransaction(database);
   try {
     await client.query('begin');
     const before=(await client.query("select * from public.advisories where id=$1 and status='CANCELADA' for update",[id])).rows[0];
@@ -939,6 +992,22 @@ async function databaseHealth() {
 
   try {
     await database.query("select token_hash from public.revoked_sessions limit 0");
+    // LIMIT 0 valida existencia, columnas y permisos de lectura sin transferir datos.
+    await database.query(`select
+      (select operation_fingerprint from public.advisories limit 0),
+      (select operation_id from public.advisories limit 0),
+      (select student_snapshot from public.advisories limit 0),
+      (select revision from public.advisory_drafts limit 0),
+      (select payload from public.advisory_drafts limit 0),
+      (select id from public.app_users limit 0),
+      (select id from public.students limit 0),
+      (select id from public.careers limit 0),
+      (select id from public.student_groups limit 0),
+      (select id from public.periods limit 0),
+      (select id from public.subjects limit 0),
+      (select id from public.advisory_reasons limit 0),
+      (select timezone from public.institution_settings limit 0),
+      (select id from public.audit_log limit 0)`);
     return {
       statusCode: 200,
       body: {
