@@ -836,7 +836,7 @@ async function apiCreateAdvisory(request, response, session) {
     if(!draft||draft.operation_id!==operationId||!Number.isSafeInteger(body.revision)||Number(draft.revision)!==body.revision||!matchesFinalDraft(draft.payload,body))throw Object.assign(new Error('draft_conflict'),{statusCode:400,publicMessage:'No existe un respaldo confirmado que coincida con la asesoría. Respalde los datos o recargue antes de guardar.'});
     if((await client.query("select 1 from public.audit_log where user_id=$1 and action='DRAFT_DISCARDED' and entity_id=$2",[session.id,operationId])).rowCount)throw Object.assign(new Error('discarded'),{statusCode:400,publicMessage:'El borrador fue descartado.'});
     const periodId=draft?.payload.periodId||body.periodId||null;
-    if (body.nuevoCatalogo === true) await ensureStudentCatalog(client,data.career,data.group);
+    if (body.nuevoCatalogo === true) await ensureStudentCatalog(client,session,data.career,data.group);
     const group = await client.query(`
       select g.id, c.id as career_id
         from public.student_groups g
@@ -911,9 +911,18 @@ async function apiCreateAdvisory(request, response, session) {
   }
 }
 
-async function ensureStudentCatalog(client, career, group) {
-  await client.query('insert into public.careers(code,name) values($1,$1) on conflict(code) do nothing',[career]);
-  await client.query('insert into public.student_groups(name,career_id) select $2,id from public.careers where code=$1 and active=true on conflict(name) do nothing',[career,group]);
+async function ensureStudentCatalog(client, session, career, group) {
+  const fail=(code,message)=>Object.assign(new Error(code),{statusCode:400,publicMessage:message});
+  const auditCreated=async(type,id,details)=>client.query('insert into public.audit_log(user_id,username,action,entity_type,entity_id,details) values($1,$2,$3,$4,$5,$6::jsonb)',[session.id,session.usuario,'CATALOG_CREATED',type,id,JSON.stringify(details)]);
+  const created=await client.query('insert into public.careers(code,name,active) values($1,$1,true) on conflict(code) do nothing returning id',[career]);
+  const c=(await client.query('select id,active from public.careers where code=$1 for share',[career])).rows[0];
+  if(!c?.active)throw fail('inactive_career','La carrera está inactiva. Consulte a Administración.');
+  if(created.rows[0])await auditCreated('carreras',c.id,{code:career,name:career});
+  const added=await client.query('insert into public.student_groups(name,career_id,active) values($1,$2,true) on conflict(name) do nothing returning id',[group,c.id]);
+  const g=(await client.query('select id,career_id,active from public.student_groups where name=$1 for share',[group])).rows[0];
+  if(!g?.active)throw fail('inactive_group','El grupo está inactivo. Consulte a Administración.');
+  if(g.career_id!==c.id)throw fail('group_other_career','El grupo ya pertenece a otra carrera. Seleccione el grupo correcto.');
+  if(added.rows[0])await auditCreated('grupos',g.id,{name:group,career_id:c.id});
 }
 async function apiCorrectAdvisory(request,response,session,id) {
   const body=await readJsonBody(request,32768).catch(()=>null);
@@ -1221,7 +1230,8 @@ async function handleRequest(request, response) {
       else if (request.method === "POST") await apiCreateAdvisory(request, response, session);
       else sendJson(response, 405, { ok: false });
     } catch (error) {
-      console.error("Error en asesorías:", error.message);
+      console.error("Error en asesorías:", {code:error.code||"unknown",constraint:error.constraint||null});
+      if (["23502","23503","23505","23514","22001","22P02"].includes(error.code)) return sendJson(response,400,{ok:false,code:"database_constraint",message:"PostgreSQL rechazó los datos por una restricción de integridad. El borrador se conserva. Consulte a Administración."});
       sendJson(response, 503, { ok: false, code: "database_error", message: "No fue posible comunicarse con PostgreSQL." });
     }
     return;
