@@ -326,3 +326,7 @@ input,select,textarea,button{min-width:0;max-width:100%}
 }
 
 @media print{.print-logo-right{border:0}.print-statistics-document .print-logo-right{width:82px;height:32px;margin:0 0 4px}}
+
+/* v1.7.50: matrícula, nombre y botón Buscar en una misma fila */
+.student-search-field{min-width:0}.student-search-action{display:flex;justify-content:flex-end;align-items:flex-end;align-self:end}.student-search-action button{min-width:110px;margin:0;min-height:38px}
+@media(max-width:800px){.student-search-action{justify-content:flex-end;align-self:stretch;align-items:flex-end}}

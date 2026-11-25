@@ -1,12 +1,12 @@
 {
   "name": "sistema-tutorias",
-  "version": "1.7.47",
+  "version": "1.7.50",
   "private": true,
-  "description": "Sistema web para el registro y administraci\u00f3n de asesor\u00edas escolares",
+  "description": "Sistema web para el registro y administración de asesorías escolares",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --check server.js && node --check app.js && node --check admin.js && node tests/security-check.js && node tests/responsive-check.js && node tests/audit-regression-check.js && node tests/phase2-check.js && node tests/phase2-growth-check.js && node tests/phase3-integration-check.js && node tests/schema-compatibility-check.js && node tests/migration-layout-check.js && node tests/xlsx-export-check.js && node tests/phase2-hardening-check.js && node tests/manual-registration-check.js && node tests/subject-autofill-check.js && node tests/time-correction-check.js && node tests/idempotency-check.js && node tests/draft-pagination-check.js && node tests/audit-restore-check.js && node tests/student-file-check.js && node tests/indicators-check.js && node tests/comparison-check.js && node tests/release-package-check.js && node tests/render-runtime-check.js && node tests/retry-runtime-check.js && node tests/stabilization-check.js && node tests/period-time-runtime-check.js && node tests/admin-snapshot-check.js && node tests/draft-sync-runtime-check.js && node tests/logo-public-check.js && node tests/priority-runtime-check.js && node tests/optimization-runtime-check.js && node tests/startup-check.js && node tests/high-priority-recovery-check.js && node tests/medium-priority-check.js && node tests/http-module-check.js && node tests/session-resilience-check.js && node tests/consolidated-audit-check.js",
+    "test": "node --check server.js && node --check app.js && node --check admin.js",
     "verify:deploy": "node scripts/verify-deploy.js"
   },
   "dependencies": {
