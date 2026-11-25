@@ -3,7 +3,7 @@ services:
     name: sistema-tutorias
     runtime: node
     plan: free
-    buildCommand: npm ci --omit=dev
+    buildCommand: npm ci --omit=dev && npm run verify:deploy
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:

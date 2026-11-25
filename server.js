@@ -35,7 +35,7 @@ const database = DATABASE_URL
 let schemaCapabilitiesPromise = null;
 
 async function schemaCapabilities() {
-  if (!database) return { sessionVersion: false };
+  if (!database) throw new Error("database_not_configured");
   if (!schemaCapabilitiesPromise) {
     schemaCapabilitiesPromise = database.query(`
       select exists(
@@ -44,68 +44,18 @@ async function schemaCapabilities() {
       ) as session_version
     `).then(result => ({ sessionVersion: result.rows[0]?.session_version === true }))
       .catch(error => {
+        schemaCapabilitiesPromise = null;
         console.warn('No fue posible comprobar la versión del esquema:', error.message);
-        return { sessionVersion: false };
+        throw error;
       });
   }
   return schemaCapabilitiesPromise;
 }
 
-const MIME_TYPES = {
-  ".html": "text/html; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".svg": "image/svg+xml",
-  ".ico": "image/x-icon"
-};
-const PUBLIC_FILES = new Set(["index.html","admin.html","styles.css","app.js","admin.js","exceljs.min.js","favicon.ico","logo-bis-universities.png","logo-iehl.jpg"]);
+// Infraestructura HTTP centralizada; el preflight verifica el módulo antes de publicar.
+const { MIME_TYPES, resolveRequestPath, sendJson, setSecurityHeaders, requestIp, sameOrigin } = require('./lib/http-response').createHttpUtilities(PUBLIC_DIR, TRUST_PROXY_HTTPS);
 
-// ARCHIVOS PÚBLICOS Y RESPUESTAS: resuelve rutas permitidas y construye respuestas HTTP/JSON.
-function resolveRequestPath(requestUrl) {
-  const pathname = decodeURIComponent(new URL(requestUrl, "http://localhost").pathname);
-  const requestedFile = pathname === "/" ? "index.html" : pathname.replace(/^\/+/, "");
-  if (!PUBLIC_FILES.has(requestedFile) && !requestedFile.startsWith("assets/")) return null;
-  const absolutePath = path.resolve(PUBLIC_DIR, requestedFile);
-  return absolutePath.startsWith(PUBLIC_DIR + path.sep) ? absolutePath : null;
-}
-
-function sendJson(response, statusCode, body, headOnly = false) {
-  const payload = JSON.stringify(body);
-  response.writeHead(statusCode, {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': 'no-store',
-    'Content-Length': Buffer.byteLength(payload)
-  });
-  response.end(headOnly ? undefined : payload);
-}
-
-// PROTECCIONES HTTP: encabezados, origen de solicitudes, límite de intentos y bitácora.
-function setSecurityHeaders(response) {
-  response.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
-  response.setHeader("X-Content-Type-Options", "nosniff");
-  response.setHeader("X-Frame-Options", "DENY");
-  response.setHeader("Referrer-Policy", "no-referrer");
-  response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-  if (TRUST_PROXY_HTTPS) response.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-}
-
-function requestIp(request) {
-  // Solo confiar en el proxy frontal cuando se ha configurado explícitamente.
-  const forwarded = process.env.TRUST_PROXY === 'true' ? request.headers['x-forwarded-for'] : null;
-  const candidate = String(forwarded || request.socket.remoteAddress || '').split(',')[0].trim();
-  const normalized = candidate.startsWith('::ffff:') ? candidate.slice(7) : candidate;
-  return require('net').isIP(normalized) ? normalized : '127.0.0.1';
-}
-function sameOrigin(request) {
-  const origin = request.headers.origin;
-  if (!origin) return true;
-  const proto = String(request.headers["x-forwarded-proto"] || (request.socket.encrypted ? "https" : "http")).split(",")[0];
-  return origin === `${proto}://${request.headers.host}`;
-}
+// PROTECCIONES HTTP: límite de intentos y bitácora.
 function loginRateKey(request, username, area) { return crypto.createHash('sha256').update(`${requestIp(request)}|${area}|${String(username).toLowerCase()}`).digest('hex'); }
 async function loginBlocked(key) {
   if(database){try{const result=await database.query("select blocked_until>now() as blocked from public.login_attempts where rate_key=$1",[key]);return result.rows[0]?.blocked===true}catch(error){console.warn('Control persistente no disponible:',error.message)}}
@@ -251,7 +201,7 @@ async function apiLogin(request, response) {
   const token = signSession(user);
   const cookieName = area === "admin" ? "admin_session" : "advisor_session";
   response.setHeader("Set-Cookie", `${cookieName}=${encodeURIComponent(token)}; Max-Age=${SESSION_MAX_AGE_SECONDS}; Path=/; HttpOnly; Secure; SameSite=Strict`);
-  sendJson(response, 200, { ok: true, user: { usuario: user.username, nombre: user.full_name, rol: user.role } });
+  sendJson(response, 200, { ok: true, user: { id: user.id, usuario: user.username, nombre: user.full_name, rol: user.role } });
 }
 
 // ÁREA ADMINISTRATIVA: autoriza el rol administrador y atiende datos, catálogos y cuentas.
@@ -321,7 +271,7 @@ async function apiAdminData(request, response) {
     advisories: advisories.rows.map(advisoryRow), students: students.rows, users: users.rows,
     catalogs: bootstrap, periodsAdmin: periodsAdmin.rows, groupsAdmin: groupsAdmin.rows,
     catalogItems: { carreras: careersAdmin.rows, materias: subjectsAdmin.rows, motivos: reasonsAdmin.rows }
-  }});
+  }}, false, request);
   } catch (error) {
     try { await client.query("ROLLBACK"); } catch (_) {}
     throw error;
@@ -355,9 +305,9 @@ async function apiAdminAdvisoriesPage(request, response, requestUrl) {
   }
   const cursor=requestUrl.searchParams.get('cursor');
   if(cursor && offset) return sendJson(response,400,{ok:false,code:'mixed_pagination'});
-  if(cursor && !requestUrl.searchParams.get('cutoff'))return sendJson(response,400,{ok:false,code:'cutoff_required'});
+  if((cursor || offset) && !requestUrl.searchParams.get('cutoff'))return sendJson(response,400,{ok:false,code:'cutoff_required'});
   const cutoff=requestUrl.searchParams.get('cutoff')||new Date().toISOString();
-  if(!Number.isFinite(Date.parse(cutoff)))return sendJson(response,400,{ok:false});
+  if(!Number.isFinite(Date.parse(cutoff)) || Date.parse(cutoff)>Date.now()+60000)return sendJson(response,400,{ok:false});
   {values.push(cutoff);filters.push(`a.created_at <= $${values.length}::timestamptz`);}
   if(cursor){const parts=cursor.split('|');if(parts.length!==2||!Number.isFinite(Date.parse(parts[0]))||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parts[1]))return sendJson(response,400,{ok:false});values.push(...parts);filters.push(`(a.created_at,a.id)<($${values.length-1}::timestamptz,$${values.length}::uuid)`);}
   const countRequested=requestUrl.searchParams.get("count")!=="0";

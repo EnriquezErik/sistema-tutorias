@@ -27,3 +27,12 @@ Candidata parcial; consultar RELEASE_NOTES_v1.7.40.md y PRUEBAS_v1.7.40.txt. No 
 
 ## v1.7.41
 Candidata de corrección de arranque; pendiente de validación en Render.
+
+## v1.7.42
+Candidata; P-01 corregido en código y simulación; P-02 mitigado mediante recuperación local opcional, pendiente de validación real. No sustituye el respaldo operativo v1.7.38.
+
+## v1.7.43
+Candidata de prioridades medias; no autorizada para producción sin validación.
+
+## v1.7.44
+Candidata de depuración HTTP. Regresión local aprobada; dependencias reales y despliegue pendientes.

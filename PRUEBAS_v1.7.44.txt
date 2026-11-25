@@ -1,0 +1,68 @@
+Node:
+v22.16.0
+npm test (exit 0):
+
+> sistema-tutorias@1.7.44 test
+> node --check server.js && node --check app.js && node --check admin.js && node tests/security-check.js && node tests/responsive-check.js && node tests/audit-regression-check.js && node tests/phase2-check.js && node tests/phase2-growth-check.js && node tests/phase3-integration-check.js && node tests/schema-compatibility-check.js && node tests/migration-layout-check.js && node tests/xlsx-export-check.js && node tests/phase2-hardening-check.js && node tests/manual-registration-check.js && node tests/subject-autofill-check.js && node tests/time-correction-check.js && node tests/idempotency-check.js && node tests/draft-pagination-check.js && node tests/audit-restore-check.js && node tests/student-file-check.js && node tests/indicators-check.js && node tests/comparison-check.js && node tests/release-package-check.js && node tests/render-runtime-check.js && node tests/retry-runtime-check.js && node tests/stabilization-check.js && node tests/period-time-runtime-check.js && node tests/admin-snapshot-check.js && node tests/draft-sync-runtime-check.js && node tests/logo-public-check.js && node tests/priority-runtime-check.js && node tests/optimization-runtime-check.js && node tests/startup-check.js && node tests/high-priority-recovery-check.js && node tests/medium-priority-check.js && node tests/http-module-check.js
+
+Controles esenciales de seguridad: OK
+Estructura adaptable de Registro y Administración: OK
+Correcciones derivadas de auditoría: OK
+Controles de fase 2 bloque 1: OK
+Crecimiento y consultas de fase 2: OK
+Integridad técnica automatizada de fase 3: OK
+Compatibilidad con la base existente: OK
+Ubicación y secuencia de migraciones: OK (comprobación estática; no ejecuta SQL).
+Exportaciones XLSX estándar de Administración: OK
+Endurecimiento incremental v1.7.44: OK
+Inicio sin datos y validación al finalizar: OK (simulación JS); historial: comprobación estática.
+Materia automática: simulación JS y revisión estática SQL OK
+Corrección de horario: casos de regresión aprobados
+Reintento: simulación del servidor y comprobaciones estáticas OK
+Borrador GET simulado y paginación: controles estáticos OK
+Bitácora y restauración: simulación de permisos, transacción, rollback y paginación OK
+Expediente: simulación de matrícula exacta, periodos y exclusión de anuladas; alta materia: revisión estática OK
+Indicadores: cálculo, filtros, recurrencia, canalizaciones, exclusión y estructura OK
+Comparación: periodos, diferencias, base cero, anulaciones y estructura OK
+Paquete institucional: OK
+Renderización real de indicadores y comparación con DOM simulado: OK
+Reintento completado antes de validar formulario: OK
+Filtro institucional y paginación sin conteo: OK (simulación)
+Periodo histórico, ambigüedad, horario institucional y comparación de borradores: OK (simulación)
+Snapshot administrativo: carga obsoleta, salida y respuesta incompleta (simulados) OK
+Snapshot administrativo: transacción, datos completos, rollback y liberación (simulados) OK
+Respaldo obligatorio antes de finalizar y cancelación de solicitudes: OK (simulación)
+IEHL: archivo, rutas y lista pública: OK
+Prioridades: coincidencia de respaldo, sesión activa, cierre seguro y fechas (simulación): OK
+JSON compacto, paginación transaccional, rollback y corte obligatorio: OK (simulación)
+Arranque HTTP con módulos locales reales: OK; dependencias externas simuladas, sin PostgreSQL
+P-01: error no se convierte en ausencia de columna; reintento y concurrencia OK. P-02: consentimiento, aislamiento, recuperación, confirmación, caducidad y cuota (simulados) OK
+Prioridades medias: bloqueo/restauración, compresión sin pérdida y runtime declarado OK
+Módulo HTTP único: rutas, seguridad, origen, IP y preflight OK
+Sintaxis adicional: lib/http-response.js y scripts/verify-deploy.js OK
+Instalación offline y preflight real: NO aprobados (dependencias ausentes)
+npm error code ENOTCACHED
+npm error request to https://registry.npmjs.org/xtend/-/xtend-4.0.2.tgz failed: cache mode is 'only-if-cached' but no cached response is available.
+npm error A complete log of this run can be found in: /home/oai/.npm/_logs/2026-11-25T00_05_11_440Z-debug-0.log
+node:internal/modules/cjs/loader:1404
+  throw err;
+  ^
+
+Error: Cannot find module 'pg'
+Require stack:
+- /tmp/v1744/Humanidades 11112026/scripts/verify-deploy.js
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1401:15)
+    at Function.resolve (node:internal/modules/helpers:145:19)
+    at Object.<anonymous> (/tmp/v1744/Humanidades 11112026/scripts/verify-deploy.js:8:54)
+    at Module._compile (node:internal/modules/cjs/loader:1730:14)
+    at Object..js (node:internal/modules/cjs/loader:1895:10)
+    at Module.load (node:internal/modules/cjs/loader:1465:32)
+    at Function._load (node:internal/modules/cjs/loader:1282:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [ '/tmp/v1744/Humanidades 11112026/scripts/verify-deploy.js' ]
+}
+
+Node.js v22.16.0

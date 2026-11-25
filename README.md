@@ -72,3 +72,12 @@ Candidata parcial; consultar RELEASE_NOTES_v1.7.40.md y PRUEBAS_v1.7.40.txt. No 
 
 ## v1.7.41
 Corrección de arranque; consultar RELEASE_NOTES_v1.7.41.md y PRUEBAS_v1.7.41.txt. Pendiente de validación en Render.
+
+## v1.7.42
+Correcciones prioritarias P-01 y P-02. Consultar RELEASE_NOTES_v1.7.42.md y PRUEBAS_v1.7.42.txt. Candidata para validación controlada.
+
+## v1.7.43
+Consultar RELEASE_NOTES_v1.7.43.md y PRUEBAS_v1.7.43.txt. Candidata; preflight real y validación funcional pendientes.
+
+## v1.7.44
+Consultar RELEASE_NOTES_v1.7.44.md y PRUEBAS_v1.7.44.txt. Módulo HTTP único; despliegue real pendiente.
