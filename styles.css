@@ -383,3 +383,9 @@ input,select,textarea,button{min-width:0;max-width:100%}
   .correction-head,#correctionDuration{background:var(--popup-bone);color:var(--popup-text)}
   .correction-head p{color:var(--popup-text)}
 }
+
+/* Controles de contraseña compatibles con CSP en ambas páginas. */
+.login-card .password-input-wrap{display:flex;align-items:stretch;gap:6px;min-width:0}
+.login-card .password-input-wrap input{flex:1 1 0;min-width:0;width:0}
+.login-card .password-toggle{flex:0 0 auto;min-width:64px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#334155;cursor:pointer;font-size:13px;font-weight:700}
+.login-card .password-toggle:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
