@@ -371,3 +371,15 @@ input,select,textarea,button{min-width:0;max-width:100%}
 }
 
 .recovery-option{margin:8px 0;font-size:12px;color:#475569}.recovery-option summary{cursor:pointer;width:fit-content}.recovery-option .recovery-choice{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px}.recovery-option input[type=checkbox]{display:inline-block;width:16px;height:16px;min-height:0;flex:0 0 16px;margin:0;padding:0}.recovery-option p{margin:6px 0;line-height:1.5}@media print{.recovery-option{display:none}}
+
+/* v1.7.55: paleta común de paneles emergentes personalizados. */
+:root{--popup-bone:#F5F1E8;--popup-border:#D8D0C0;--popup-text:#263238}
+@media screen{
+  .student-results, #correctionDialog, #restoreDialog, .login-card{
+    background:var(--popup-bone);border-color:var(--popup-border);color:var(--popup-text);
+    box-shadow:0 6px 20px rgba(38,50,56,.12);
+  }
+  .student-match,.correction-head,.correction-footer{border-color:var(--popup-border)}
+  .correction-head,#correctionDuration{background:var(--popup-bone);color:var(--popup-text)}
+  .correction-head p{color:var(--popup-text)}
+}
