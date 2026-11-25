@@ -332,3 +332,47 @@ input,select,textarea,button{min-width:0;max-width:100%}
 @media(max-width:800px){.student-search-action{justify-content:flex-end;align-self:stretch;align-items:flex-end}}
 
 .student-search-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto;gap:14px;align-items:end}.student-search-row .student-search-action{justify-content:start}.student-results[hidden]{display:none!important}.student-results{border:1px solid #ccd4d9;border-radius:8px;padding:12px}.student-results-head,.student-match{display:flex;align-items:center;justify-content:space-between;gap:12px}.student-match{padding:8px 0;border-top:1px solid #e7ebee}.student-match span{overflow-wrap:anywhere;min-width:0}.student-match button{flex-shrink:0}@media(max-width:540px){.student-search-row{grid-template-columns:minmax(0,1fr) auto;gap:8px}.student-search-row label:first-child{grid-column:1/-1}.student-search-row .student-search-action button{min-width:0}}
+
+/* Registro compacto: estilos aislados de Administración. */
+@media screen {
+.advisory-compact .advisory-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 18px;margin-bottom:14px}
+.advisory-compact .advisory-heading .section-title{margin:0}
+.advisory-compact .advisor-line{margin:0;gap:8px 12px;flex-wrap:wrap;min-width:0}
+.advisory-compact .advisor-line .logout-btn{margin:0}
+.advisory-compact .advisor-line #draftStatus:empty{display:none}
+.advisory-compact .advisory-fields{grid-template-columns:repeat(12,minmax(0,1fr));gap:10px 12px;align-items:end}
+.advisory-compact .advisory-fields>label{min-width:0}
+.advisory-compact .student-search-row{grid-template-columns:minmax(130px,180px) minmax(0,360px) auto;justify-content:start;gap:10px}
+.advisory-compact .student-search-action button{min-width:90px}
+.advisory-compact .field-sex,.advisory-compact .field-shift{grid-column:span 2}
+.advisory-compact .field-career,.advisory-compact .field-group{grid-column:span 3}
+.advisory-compact #manualCatalog{grid-column:span 4;justify-self:start}
+.advisory-compact .field-subject{grid-column:span 4}
+.advisory-compact #manualSubject{grid-column:span 2;justify-self:start}
+.advisory-compact .field-reason{grid-column:span 4}
+.advisory-compact .field-psych{grid-column:span 4}
+.advisory-compact #manualCatalog,.advisory-compact #manualSubject{width:auto;max-width:100%;padding:8px 12px;font-size:12px;min-height:36px}
+.advisory-compact [hidden]{display:none!important}
+.advisory-compact .advisory-fields input,.advisory-compact .advisory-fields select{min-width:0;padding:8px 10px;margin-top:4px;min-height:36px}
+.advisory-compact .advisory-fields textarea{margin-top:4px}
+}
+@media screen and (min-width:801px){
+.advisory-compact .advisory-fields{grid-template-columns:repeat(12,minmax(0,70px));justify-content:start}
+.advisory-compact .field-shift{grid-column:1/span 2}
+.advisory-compact .field-psych{grid-column:1/span 4}
+}
+@media screen and (max-width:800px){
+.advisory-compact .advisory-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+.advisory-compact .advisory-fields>label:not(.full){grid-column:span 1}
+.advisory-compact .field-subject,.advisory-compact .field-reason,.advisory-compact .field-psych{grid-column:1/-1!important}
+.advisory-compact #manualCatalog,.advisory-compact #manualSubject{grid-column:1/-1;min-height:44px}
+.advisory-compact .advisory-fields input,.advisory-compact .advisory-fields select{min-height:44px}
+.advisory-compact .advisor-line .logout-btn{order:0;width:auto;min-height:44px}
+.advisory-compact .student-search-row{grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto}
+.advisory-compact .student-search-action button{min-height:44px}
+}
+@media screen and (max-width:540px){
+.advisory-compact .student-search-row{grid-template-columns:minmax(0,1fr) auto}
+.advisory-compact .student-search-row label:first-child{grid-column:1/-1}
+.advisory-compact .student-search-action button{min-width:0}
+}
