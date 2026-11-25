@@ -696,10 +696,7 @@ async function apiFindStudent(request, response, searchTerm) {
   const result = await database.query(`
     select s.enrollment::text, s.full_name, s.sex, s.shift,
            c.code::text as career, g.name::text as group_name,
-           (select sub.name::text from public.advisories a
-              join public.subjects sub on sub.id = a.subject_id
-             where a.student_id = s.id and a.status = 'FINALIZADA'
-             order by a.ended_at desc, a.created_at desc, a.id desc limit 1) as last_subject
+           null::text as last_subject
       from public.students s
       join public.careers c on c.id = s.career_id
       join public.student_groups g on g.id = s.group_id
@@ -731,9 +728,9 @@ async function apiListAdvisories(request, response, session) {
       join public.advisory_reasons r on r.id = a.reason_id
       join public.periods p on p.id = a.period_id
       join public.app_users u on u.id = a.advisor_id
-     where a.status <> 'CANCELADA'
+     where a.advisor_id = $1 and a.status <> 'CANCELADA'
      order by a.started_at desc
-  `, []);
+  `, [session.id]);
   sendJson(response, 200, { ok: true, advisories: result.rows.map(advisoryRow) });
 }
 
@@ -836,23 +833,7 @@ async function apiCreateAdvisory(request, response, session) {
     if(!draft||draft.operation_id!==operationId||!Number.isSafeInteger(body.revision)||Number(draft.revision)!==body.revision||!matchesFinalDraft(draft.payload,body))throw Object.assign(new Error('draft_conflict'),{statusCode:400,publicMessage:'No existe un respaldo confirmado que coincida con la asesoría. Respalde los datos o recargue antes de guardar.'});
     if((await client.query("select 1 from public.audit_log where user_id=$1 and action='DRAFT_DISCARDED' and entity_id=$2",[session.id,operationId])).rowCount)throw Object.assign(new Error('discarded'),{statusCode:400,publicMessage:'El borrador fue descartado.'});
     const periodId=draft?.payload.periodId||body.periodId||null;
-    await ensureStudentCatalog(client,session,data.career,data.group);
-    const group = await client.query(`
-      select g.id, c.id as career_id
-        from public.student_groups g
-        join public.careers c on c.id = g.career_id
-       where g.active = true
-         and c.active = true
-         and lower(trim(c.code::text)) = lower(trim($1))
-         and lower(trim(g.name::text)) = lower(trim($2))
-       limit 1
-    `, [data.career, data.group]);
-    if (!group.rows[0]) {
-      throw Object.assign(new Error("invalid_group_for_career"), {
-        statusCode: 400,
-        publicMessage: `El grupo "${data.group}" no está activo o no pertenece a la carrera "${data.career}".`
-      });
-    }
+    const group = {rows:[await ensureStudentCatalog(client,session,data.career,data.group)]};
 
     await ensureAdvisorySubject(client,session,data.subject);
     const catalogs = await client.query(`
@@ -914,15 +895,18 @@ async function apiCreateAdvisory(request, response, session) {
 async function ensureStudentCatalog(client, session, career, group) {
   const fail=(code,message)=>Object.assign(new Error(code),{statusCode:400,publicMessage:message});
   const auditCreated=async(type,id,details)=>client.query('insert into public.audit_log(user_id,username,action,entity_type,entity_id,details) values($1,$2,$3,$4,$5,$6::jsonb)',[session.id,session.usuario,'CATALOG_CREATED',type,id,JSON.stringify(details)]);
-  const created=await client.query('insert into public.careers(code,name,active) values($1,$1,true) on conflict(code) do nothing returning id',[career]);
+  const priorCareer=await client.query('select id from public.careers where code=$1',[career]);
+  const created=priorCareer.rowCount?{rows:[]}:await client.query('insert into public.careers(code,name,active) values($1,$1,true) on conflict(code) do nothing returning id',[career]);
   const c=(await client.query('select id,active from public.careers where code=$1 for share',[career])).rows[0];
   if(!c?.active)throw fail('inactive_career','La carrera está inactiva. Consulte a Administración.');
   if(created.rows[0])await auditCreated('carreras',c.id,{code:career,name:career});
-  const added=await client.query('insert into public.student_groups(name,career_id,active) values($1,$2,true) on conflict(name) do nothing returning id',[group,c.id]);
+  const priorGroup=await client.query('select id from public.student_groups where name=$1',[group]);
+  const added=priorGroup.rowCount?{rows:[]}:await client.query('insert into public.student_groups(name,career_id,active) values($1,$2,true) on conflict(name) do nothing returning id',[group,c.id]);
   const g=(await client.query('select id,career_id,active from public.student_groups where name=$1 for share',[group])).rows[0];
   if(!g?.active)throw fail('inactive_group','El grupo está inactivo. Consulte a Administración.');
   if(g.career_id!==c.id)throw fail('group_other_career','El grupo ya pertenece a otra carrera. Seleccione el grupo correcto.');
   if(added.rows[0])await auditCreated('grupos',g.id,{name:group,career_id:c.id});
+  return {id:g.id,career_id:c.id};
 }
 async function apiCorrectAdvisory(request,response,session,id) {
   const body=await readJsonBody(request,32768).catch(()=>null);
@@ -950,7 +934,7 @@ async function apiCorrectAdvisory(request,response,session,id) {
       const fields=['matricula','nombre','sexo','carrera','grupo','turno','materia','motivo','comentarios'].map(k=>String(body[k]??'').trim());
       const [enrollment,name,sex,career,group,shift,subject,motive,comments]=fields;
       if(fields.slice(0,8).some(x=>!x||x==='Seleccione')||fields.some((x,i)=>x.length>[40,160,10,30,80,20,160,160,2000][i])||!['Hombre','Mujer'].includes(sex)||!['Matutino','Vespertino'].includes(shift)) fail('Datos inválidos.');
-      if(session.rol==='advisor'){await ensureStudentCatalog(client,session,career,group);await ensureAdvisorySubject(client,session,subject);}
+      // El historial corrige registros propios; las altas de catálogo se reservan a Asesoría actual.
       const cat=await client.query(`select g.id as gid,c.id as cid,(select id from public.subjects where name=$3) as sid,(select id from public.advisory_reasons where name=$4) as rid from public.student_groups g join public.careers c on c.id=g.career_id where c.code=$1 and g.name=$2`,[career,group,subject,motive]);
       const x=cat.rows[0];if(!x?.sid||!x?.rid) fail('Revise carrera, grupo, materia y motivo.');
       const target=await client.query('select * from public.students where enrollment=$1 for update',[enrollment]);
@@ -1212,7 +1196,7 @@ async function handleRequest(request, response) {
     if(request.method!=='PATCH') return sendJson(response,405,{ok:false});
     if(!database) return sendJson(response,503,{ok:false});
     const advisor=readSession(request),admin=readSession(request,'admin_session');
-    const session=await isActiveAdvisorSession(advisor)?advisor:await isActiveAdminSession(admin)?admin:null;
+    const session=advisor ? (await isActiveAdvisorSession(advisor)?advisor:null) : (await isActiveAdminSession(admin)?admin:null);
     if(!session)return sendJson(response,403,{ok:false});
     try{await apiCorrectAdvisory(request,response,session,correctionMatch[1]);}catch(error){console.error('Corrección:',error.message);sendJson(response,503,{ok:false,message:'No se pudo guardar la corrección.'})}return;
   }
@@ -1234,7 +1218,10 @@ async function handleRequest(request, response) {
     } catch (error) {
       console.error("Error en asesorías:", {code:error.code||"unknown",constraint:error.constraint||null});
       if (["23502","23503","23505","23514","22001","22P02"].includes(error.code)) return sendJson(response,400,{ok:false,code:"database_constraint",message:"PostgreSQL rechazó los datos por una restricción de integridad. El borrador se conserva. Consulte a Administración."});
-      sendJson(response, 503, { ok: false, code: "database_error", message: "No fue posible comunicarse con PostgreSQL." });
+      if(error.code==='42501') return sendJson(response,503,{ok:false,code:'database_permission',message:'PostgreSQL rechazó un permiso del servidor (42501). El borrador se conserva. Consulte a Administración.'});
+      if(error.code==='57014') return sendJson(response,503,{ok:false,code:'database_timeout',message:'La operación excedió el tiempo de espera (57014). Verifique el historial antes de reintentar.'});
+      const sqlstate=/^[0-9A-Z]{5}$/.test(error.code||'')?error.code:'sin código SQL';
+      sendJson(response, 503, { ok: false, code: "database_error", message: `No se confirmó el guardado en PostgreSQL (${sqlstate}). El borrador se conserva; consulte el historial y los Logs de Render.` });
     }
     return;
   }
