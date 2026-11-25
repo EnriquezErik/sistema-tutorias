@@ -77,7 +77,7 @@ function applyPeriodCatalog(){
   filter.value=Array.from(filter.options).some(option=>option.value===previous)?previous:"all";
 }
 async function refreshPeriodCatalog(){
-  if(refreshingPeriodCatalog||savingAdvisory)return;
+  if(!currentUser()||refreshingPeriodCatalog||savingAdvisory)return;
   refreshingPeriodCatalog=true;
   try{if(await loadRemoteConfig()&&!savingAdvisory){applyPeriodCatalog();updateGroupsForCareer(true);renderHistory()}}finally{refreshingPeriodCatalog=false}
 }
@@ -178,6 +178,7 @@ async function doLogin(){
     const payload=await response.json().catch(()=>({}));
     if(response.ok&&payload.user){
       secureUser=payload.user;
+      await loadRemoteConfig();fill("carrera",appConfig().careers);fill("materia",appConfig().subjects);fill("motivo",appConfig().reasons);applyPeriodCatalog();updateGroupsForCareer();
       remoteRecords=[];
       if(msg)msg.textContent="";
       applySession();renderHistory();hideLogin();await loadRemoteAdvisories();await restoreActiveAdvisory();return;
@@ -220,6 +221,7 @@ async function logout(){
     if(!response.ok)throw Error('logout');
   }catch(error){alert("No se pudo confirmar el cierre de sesión. Vuelva a intentar.");return;}
   finally{locked.forEach((el,i)=>{el.inert=previousInert[i]});savingAdvisory=false;}
+  try{sessionStorage.removeItem(activeKey())}catch(e){}
   secureUser=null;
   if($("#recoveryConsent"))$("#recoveryConsent").checked=false;
   remoteRecords=[];
@@ -229,8 +231,8 @@ async function logout(){
   showLogin();
 }
 
-document.addEventListener("DOMContentLoaded",async()=>{['asesorias_demo','alumnos_demo','asesor_users_demo','asesor_session_persistente','asesor_session_backup'].forEach(key=>localStorage.removeItem(key));sweepRecovery();await loadRemoteConfig();const C=appConfig();if($("#schoolName"))$("#schoolName").textContent=C.schoolName;if($("#advisorName"))$("#advisorName").textContent="";fill("carrera",C.careers);fill("grupo",C.groups);fill("materia",C.subjects);fill("motivo",C.reasons);fill("turno",C.turnos||["Seleccione","Matutino","Vespertino"]);fill("sexo",C.sexos);applyPeriodCatalog();setStudentFields(false);renderHistory();
-await restoreRemoteSession();applySession();if(currentUser()){await loadRemoteAdvisories();await restoreActiveAdvisory()}
+document.addEventListener("DOMContentLoaded",async()=>{['asesorias_demo','alumnos_demo','asesor_users_demo','asesor_session_persistente','asesor_session_backup'].forEach(key=>localStorage.removeItem(key));sweepRecovery();await restoreRemoteSession();if(currentUser())await loadRemoteConfig();const C=appConfig();if($("#schoolName"))$("#schoolName").textContent=C.schoolName;if($("#advisorName"))$("#advisorName").textContent="";fill("carrera",C.careers);fill("grupo",C.groups);fill("materia",C.subjects);fill("motivo",C.reasons);fill("turno",C.turnos||["Seleccione","Matutino","Vespertino"]);fill("sexo",C.sexos);applyPeriodCatalog();setStudentFields(false);renderHistory();
+applySession();if(currentUser()){await loadRemoteAdvisories();await restoreActiveAdvisory()}
 $("#loginBtn")?.addEventListener("click",doLogin); const advisorPasswordToggle=$("#toggleAdvisorPassword");advisorPasswordToggle?.addEventListener("click",()=>{const field=$("#loginPassword");if(!field)return;const visible=field.type==="password";field.type=visible?"text":"password";advisorPasswordToggle.textContent=visible?"Ocultar":"Ver";advisorPasswordToggle.setAttribute("aria-label",visible?"Ocultar contraseña":"Mostrar contraseña");advisorPasswordToggle.setAttribute("aria-pressed",String(visible));});
 $("#loginUser")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("#loginPassword")?.focus()}});
 $("#loginPassword")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();doLogin()}});
@@ -242,7 +244,7 @@ window.addEventListener("focus",()=>{sweepRecovery();refreshPeriodCatalog()});
 let recoverySweepTimer=setInterval(sweepRecovery,60000);
 window.addEventListener("pagehide",()=>{clearInterval(recoverySweepTimer);recoverySweepTimer=null});
 window.addEventListener("pageshow",()=>{sweepRecovery();if(recoverySweepTimer===null)recoverySweepTimer=setInterval(sweepRecovery,60000)});
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){sweepRecovery();refreshPeriodCatalog()}});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){sweepRecovery();refreshPeriodCatalog()}else if(currentStart&&!savingAdvisory)persistActiveSession(true)});
 window.addEventListener('beforeunload',()=>{if(currentStart)persistActiveSession(true)});
 
 function ensureOption(id,value){const el=$("#"+id);if(value&&!Array.from(el.options).some(o=>o.value===value))el.add(new Option(value,value));}

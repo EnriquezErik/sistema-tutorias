@@ -598,25 +598,26 @@ async function apiSetPeriodActive(request,response,periodId){
 async function apiAccountSecurity(request, response) {
   const session = await requireAdmin(request, response); if (!session) return;
   let body; try { body = await readJsonBody(request); } catch (error) { sendJson(response, 400, { ok:false, code:error.message }); return; }
-  const currentPassword=String(body.currentPassword||""), newPassword=String(body.newPassword||""), recoveryCode=String(body.recoveryCode||"");
-  if (newPassword.length < 10||newPassword.length>128) { sendJson(response,400,{ok:false,message:"La contraseña debe contener entre 10 y 128 caracteres."}); return; }
-  if (recoveryCode.length < 10||recoveryCode.length>128) { sendJson(response,400,{ok:false,message:"La clave de recuperación debe contener entre 10 y 128 caracteres."}); return; }
-  const result=await database.query("select password_hash from public.app_users where id=$1 and active=true",[session.id]);
-  const user=result.rows[0]; if(!user){sendJson(response,401,{ok:false});return}
-  if(user.password_hash && !await bcrypt.compare(currentPassword,user.password_hash)){sendJson(response,401,{ok:false,message:"La contraseña actual es incorrecta."});return}
-  const passwordHash=await bcrypt.hash(newPassword,12);
-  const recoveryHash=await bcrypt.hash(recoveryCode,12);
+  const action=body.action||'both';
+  if(!['password','recovery','both'].includes(action))return sendJson(response,400,{ok:false,message:'Operación inválida.'});
+  const changePassword=action!=='recovery',changeRecovery=action!=='password';
+  const currentPassword=String(body.currentPassword||''),newPassword=String(body.newPassword||''),recoveryCode=String(body.recoveryCode||'');
+  if(changePassword&&(newPassword.length<10||Buffer.byteLength(newPassword,'utf8')>72))return sendJson(response,400,{ok:false,message:'Contraseña: mínimo 10 caracteres y máximo 72 bytes UTF-8.'});
+  if(changeRecovery&&(recoveryCode.length<10||Buffer.byteLength(recoveryCode,'utf8')>72))return sendJson(response,400,{ok:false,message:'Recuperación: mínimo 10 caracteres y máximo 72 bytes UTF-8.'});
+  const result=await database.query('select password_hash from public.app_users where id=$1 and active=true',[session.id]);
+  const user=result.rows[0];if(!user||!user.password_hash||!await bcrypt.compare(currentPassword,user.password_hash))return sendJson(response,401,{ok:false,message:'La contraseña actual es incorrecta.'});
+  const passwordHash=changePassword?await bcrypt.hash(newPassword,12):null,recoveryHash=changeRecovery?await bcrypt.hash(recoveryCode,12):null;
   const capabilities=await schemaCapabilities();
-  if(capabilities.sessionVersion)await database.query("update public.app_users set password_hash=$1,recovery_code_hash=$2,session_version=session_version+1 where id=$3",[passwordHash,recoveryHash,session.id]);
-  else await database.query("update public.app_users set password_hash=$1,recovery_code_hash=$2 where id=$3",[passwordHash,recoveryHash,session.id]);
-  await audit(request,session,"ACCOUNT_SECURITY_CHANGED","account",session.id,{});
-  sendJson(response,200,{ok:true,message:"Contraseña y recuperación configuradas."});
+  const updated=await database.query('update public.app_users set password_hash=coalesce($1,password_hash),recovery_code_hash=coalesce($2,recovery_code_hash)'+(capabilities.sessionVersion?',session_version=session_version+1':'')+' where id=$3 and active=true and password_hash=$4',[passwordHash,recoveryHash,session.id,user.password_hash]);
+  if(updated.rowCount!==1)return sendJson(response,409,{ok:false,message:'La cuenta cambió; vuelva a ingresar.'});
+  await audit(request,session,'ACCOUNT_SECURITY_CHANGED','account',session.id,{action});
+  sendJson(response,200,{ok:true,message:'Seguridad actualizada.'});
 }
 
 async function apiRecoverAccess(request,response){
   let body; try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false});return}
   const username=String(body.username||"").trim(), recoveryCode=String(body.recoveryCode||""), newPassword=String(body.newPassword||"");
-  if(!username||username.length>80||recoveryCode.length<10||recoveryCode.length>128||newPassword.length<10||newPassword.length>128){sendJson(response,400,{ok:false,message:"Revise los datos y las longitudes permitidas."});return}
+  if(!username||username.length>80||recoveryCode.length<10||recoveryCode.length>128||newPassword.length<10||Buffer.byteLength(newPassword,"utf8")>72){sendJson(response,400,{ok:false,message:"Revise los datos y las longitudes permitidas."});return}
   const rateKey=loginRateKey(request,username,"admin-recovery");
   if(await loginBlocked(rateKey)){sendJson(response,429,{ok:false,code:"too_many_attempts",message:"Demasiados intentos. Espere 15 minutos antes de volver a intentar."});return}
   const result=await database.query("select id,recovery_code_hash from public.app_users where active=true and role='admin' and lower(username::text)=lower($1) limit 1",[username]);
@@ -635,7 +636,7 @@ async function apiCreateUser(request,response){
   let body;try{body=await readJsonBody(request)}catch(error){sendJson(response,400,{ok:false});return}
   const username=String(body.username||"").trim(),fullName=String(body.fullName||"").trim(),password=String(body.password||"");
   if(!username||username.length>80||!fullName||fullName.length>160){sendJson(response,400,{ok:false,message:"Capture nombre y usuario con longitudes válidas."});return}
-  if(password.length<10||password.length>128){sendJson(response,400,{ok:false,message:"La contraseña debe contener entre 10 y 128 caracteres."});return}
+  if(password.length<10||Buffer.byteLength(password,"utf8")>72){sendJson(response,400,{ok:false,message:"La contraseña debe contener al menos 10 caracteres y no superar 72 bytes UTF-8."});return}
   const hash=await bcrypt.hash(password,12);
   try{
     const created=await database.query("insert into public.app_users(username,full_name,password_hash,role,active) values($1,$2,$3,'advisor',true) returning id",[username,fullName,hash]);
@@ -1050,7 +1051,7 @@ async function handleRequest(request, response) {
   if (requestUrl.pathname === "/api/bootstrap") {
     if (request.method !== "GET") { sendJson(response, 405, { ok: false }); return; }
     if (!database) { sendJson(response, 503, { ok: false, code: "database_not_configured" }); return; }
-    try { sendJson(response, 200, { ok: true, data: await getBootstrap() }); }
+    try { const advisor=readSession(request),admin=readSession(request,"admin_session"); if(!await isActiveAdvisorSession(advisor)&&!await isActiveAdminSession(admin))return sendJson(response,401,{ok:false,code:"authentication_required"}); sendJson(response, 200, { ok: true, data: await getBootstrap() }); }
     catch (error) { console.error("Error al cargar catálogos:", error.message); sendJson(response, 503, { ok: false, code: "database_error" }); }
     return;
   }
@@ -1284,6 +1285,7 @@ async function startServer(){
   if(database&&process.env.ADMIN_INITIAL_PASSWORD){
     const pending=await database.query("select id from public.app_users where role='admin' and password_hash is null");
     if(pending.rowCount){
+      if(process.env.ADMIN_INITIAL_PASSWORD.length<10||Buffer.byteLength(process.env.ADMIN_INITIAL_PASSWORD,"utf8")>72)throw Error("ADMIN_INITIAL_PASSWORD debe tener al menos 10 caracteres y un máximo de 72 bytes UTF-8");
       const hash=await bcrypt.hash(process.env.ADMIN_INITIAL_PASSWORD,12);
       await database.query("update public.app_users set password_hash=$1 where role='admin' and password_hash is null",[hash]);
       console.log("Contraseña administrativa inicial configurada de forma segura.");

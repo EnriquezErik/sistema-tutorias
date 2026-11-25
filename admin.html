@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Administración · Asesorías</title>
 <link rel="icon" type="image/png" href="/logo-bis-universities.png">
-<link rel="stylesheet" href="styles.css?v=1.7.59">
+<link rel="stylesheet" href="styles.css?v=1.7.61">
 </head>
 <body class="locked">
 <!-- Acceso y recuperación de la cuenta administradora. -->
@@ -123,11 +123,17 @@
     <div class="section-title">Seguridad de la cuenta administrativa</div>
     <div class="muted section-note">La contraseña es obligatoria. Configure también una clave de recuperación de al menos 10 caracteres y guárdela en un lugar seguro.</div>
     <form class="security-settings" id="adminSecurityForm" autocomplete="on">
+      <input type="text" id="securityUsername" name="username" autocomplete="username" hidden readonly>
       <label>Contraseña actual<input id="currentAdminPassword" name="currentPassword" type="password" autocomplete="current-password"></label>
       <label>Contraseña nueva<input id="newAdminPassword" name="newPassword" type="password" minlength="10" autocomplete="new-password" placeholder="Mínimo 10 caracteres"></label>
       <label>Confirmar contraseña<input id="confirmAdminPassword" name="confirmPassword" type="password" minlength="10" autocomplete="new-password"></label>
+      <button id="saveAdminSecurityBtn" class="primary" type="submit">Cambiar contraseña</button>
+    </form>
+    <form class="security-settings" id="adminRecoverySettingsForm" autocomplete="on">
+      <input type="text" id="recoverySettingsUsername" name="username" autocomplete="username" hidden readonly>
+      <label>Contraseña actual<input id="recoveryCurrentPassword" type="password" autocomplete="current-password" required></label>
       <label>Clave de recuperación<input id="newRecoveryCode" name="recoveryCode" type="password" minlength="10" autocomplete="off" placeholder="Mínimo 10 caracteres"></label>
-      <button id="saveAdminSecurityBtn" class="primary" type="button">Guardar seguridad</button>
+      <button class="primary" type="submit">Guardar clave de recuperación</button>
     </form>
     <div id="securityMsg" class="muted" aria-live="polite"></div>
   </section>
@@ -163,8 +169,8 @@
 <dialog id="restoreDialog" aria-labelledby="restoreTitle"><form id="restoreForm"><h3 id="restoreTitle">Restaurar asesoría</h3><p id="restoreLabel"></p><p>El registro volverá a contabilizarse. Compruebe que no sea un duplicado.</p><label>Justificación<textarea id="restoreReason" required maxlength="500"></textarea></label><p id="restoreMessage" role="status"></p><div class="toolbar"><button type="button" class="secondary" id="restoreCancel">Cancelar</button><button type="submit" class="primary" id="restoreSave">Restaurar</button></div></form></dialog>
 </main>
 
-<footer class="site-footer"><span id="adminFooterText">© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.</span><br><span id="adminVersion">Versión 1.7.59 · Administración</span></footer>
+<footer class="site-footer"><span id="adminFooterText">© 2025 Registro de Asesorías Académicas. Todos los derechos reservados.</span><br><span id="adminVersion">Versión 1.7.61 · Administración</span></footer>
 <div id="adminPrintReport" class="print-only"></div>
 <script src="exceljs.min.js?v=4.4.0"></script>
-<script src="admin.js?v=1.7.59"></script>
+<script src="admin.js?v=1.7.61"></script>
 </body></html>

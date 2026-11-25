@@ -1,4 +1,4 @@
-# Sistema de Tutorías v42 · paquete operativo limpio · v1.7.51
+# Sistema de Tutorías v42 · paquete operativo limpio · v1.7.61
 
 Este ZIP contiene los archivos necesarios para ejecutar las dos interfaces web (Registro y Administración), el servidor que las entrega y conecta con PostgreSQL, los recursos visuales y las dependencias de ejecución.
 
