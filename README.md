@@ -81,3 +81,6 @@ Consultar RELEASE_NOTES_v1.7.43.md y PRUEBAS_v1.7.43.txt. Candidata; preflight r
 
 ## v1.7.44
 Consultar RELEASE_NOTES_v1.7.44.md y PRUEBAS_v1.7.44.txt. Módulo HTTP único; despliegue real pendiente.
+
+## v1.7.45
+Consultar RELEASE_NOTES_v1.7.45.md. Aplicar migración aditiva 010 antes del despliegue.

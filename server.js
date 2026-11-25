@@ -32,6 +32,10 @@ const database = DATABASE_URL
       idle_in_transaction_session_timeout: 60000
     })
   : null;
+// pg emite errores de clientes inactivos fuera de las solicitudes HTTP.
+if (database) database.on('error', error => {
+  console.error('Error de conexión inactiva del pool PostgreSQL:', error.code || 'unknown');
+});
 let schemaCapabilitiesPromise = null;
 
 async function schemaCapabilities() {
@@ -92,6 +96,7 @@ function signSession(user) {
     nombre: user.full_name,
     rol: user.role,
     sv: Number(user.session_version)||1,
+    jti: crypto.randomUUID(),
     exp: Date.now() + SESSION_MAX_AGE_SECONDS * 1000
   })).toString("base64url");
   const signature = crypto.createHmac("sha256", effectiveSessionSecret).update(payload).digest("base64url");
@@ -111,19 +116,34 @@ function readSession(request, cookieName = "advisor_session") {
   if (actualBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(actualBuffer, expectedBuffer)) return null;
   try {
     const session = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
-    return session && typeof session === "object" && typeof session.id === "string" && ["admin","advisor"].includes(session.rol) && Number.isFinite(session.exp) && session.exp > Date.now() ? session : null;
+    if (!(session && typeof session === "object" && typeof session.id === "string" && ["admin","advisor"].includes(session.rol) && Number.isFinite(session.exp) && session.exp > Date.now())) return null;
+    // Hash del token firmado, también compatible con cookies anteriores sin jti.
+    Object.defineProperty(session, 'tokenHash', {value: crypto.createHash('sha256').update(token).digest('hex')});
+    return session;
   } catch (error) {
     return null;
   }
 }
 
+async function isSessionRevoked(session) {
+  if (!session?.tokenHash) return true;
+  const result = await database.query('select 1 from public.revoked_sessions where token_hash=$1 and expires_at>now()', [session.tokenHash]);
+  return result.rowCount > 0;
+}
+async function revokeSession(session) {
+  if (!session) return;
+  if (!database) throw Error('database_not_configured');
+  await database.query('insert into public.revoked_sessions(token_hash,expires_at) values($1,to_timestamp($2::double precision/1000)) on conflict(token_hash) do nothing', [session.tokenHash,session.exp]);
+  // Limpieza oportunista, no condiciona la revocación ya confirmada.
+  try { await database.query('delete from public.revoked_sessions where expires_at<=now()'); } catch(error) { console.warn('Limpieza de sesiones vencidas pendiente:',error.code||'unknown'); }
+}
 async function isActiveAdvisorSession(session){
   if(!session||session.rol!=="advisor"||!database)return false;
   const capabilities=await schemaCapabilities();
   const result=capabilities.sessionVersion
     ? await database.query("select 1 from public.app_users where id=$1 and role='advisor' and active=true and session_version=$2",[session.id,session.sv||1])
     : await database.query("select 1 from public.app_users where id=$1 and role='advisor' and active=true",[session.id]);
-  return result.rowCount===1;
+  return result.rowCount===1 && !await isSessionRevoked(session);
 }
 
 function readJsonBody(request, limit = 16384) {
@@ -198,6 +218,7 @@ async function apiLogin(request, response) {
 
   await clearLoginFailures(rateKey);
   await audit(request,user,"LOGIN_SUCCESS","account",user.id,{area});
+  await database.query("select token_hash from public.revoked_sessions limit 0");
   const token = signSession(user);
   const cookieName = area === "admin" ? "admin_session" : "advisor_session";
   response.setHeader("Set-Cookie", `${cookieName}=${encodeURIComponent(token)}; Max-Age=${SESSION_MAX_AGE_SECONDS}; Path=/; HttpOnly; Secure; SameSite=Strict`);
@@ -219,7 +240,7 @@ async function isActiveAdminSession(session){
   const result=capabilities.sessionVersion
     ? await database.query("select 1 from public.app_users where id=$1 and role='admin' and active=true and session_version=$2",[session.id,session.sv||1])
     : await database.query("select 1 from public.app_users where id=$1 and role='admin' and active=true",[session.id]);
-  return result.rowCount===1;
+  return result.rowCount===1 && !await isSessionRevoked(session);
 }
 
 async function apiAdminData(request, response) {
@@ -267,7 +288,7 @@ async function apiAdminData(request, response) {
     client.query("select id,name::text,active from public.advisory_reasons order by name")
   ]);
   await client.query("COMMIT");
-  sendJson(response, 200, { ok: true, user: session, data: {
+  await sendJson(response, 200, { ok: true, user: session, data: {
     advisories: advisories.rows.map(advisoryRow), students: students.rows, users: users.rows,
     catalogs: bootstrap, periodsAdmin: periodsAdmin.rows, groupsAdmin: groupsAdmin.rows,
     catalogItems: { carreras: careersAdmin.rows, materias: subjectsAdmin.rows, motivos: reasonsAdmin.rows }
@@ -845,7 +866,7 @@ async function databaseHealth() {
   }
 
   try {
-    await database.query("select 1");
+    await database.query("select token_hash from public.revoked_sessions limit 0");
     return {
       statusCode: 200,
       body: {
@@ -1005,14 +1026,14 @@ async function handleRequest(request, response) {
 
   if (requestUrl.pathname === "/api/logout") {
     if (request.method !== "POST") { sendJson(response, 405, { ok: false }); return; }
-    const session=readSession(request);if(session)await audit(request,session,"LOGOUT","account",session.id,{});response.setHeader("Set-Cookie", "advisor_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict");
+    const session=readSession(request);await revokeSession(session);if(session)await audit(request,session,"LOGOUT","account",session.id,{});response.setHeader("Set-Cookie", "advisor_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict");
     sendJson(response, 200, { ok: true });
     return;
   }
 
   if (requestUrl.pathname === "/api/admin/logout") {
     if (request.method !== "POST") { sendJson(response,405,{ok:false}); return; }
-    const session=readSession(request,'admin_session');if(session)await audit(request,session,"LOGOUT","account",session.id,{});response.setHeader("Set-Cookie", "admin_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict");
+    const session=readSession(request,'admin_session');await revokeSession(session);if(session)await audit(request,session,"LOGOUT","account",session.id,{});response.setHeader("Set-Cookie", "admin_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict");
     sendJson(response,200,{ok:true}); return;
   }
 
@@ -1095,13 +1116,15 @@ async function handleRequest(request, response) {
       return;
     }
 
-    fs.createReadStream(filePath).pipe(response);
+    require('node:stream').pipeline(fs.createReadStream(filePath), response, error => {
+      if (error && error.code !== 'ERR_STREAM_PREMATURE_CLOSE') console.error('Error de transmisión de archivo:', error.code || 'unknown');
+    });
   });
 }
 const server = http.createServer((request,response)=>{
   handleRequest(request,response).catch(error=>{
     console.error('Error de solicitud:',error.message);
-    if(response.writableEnded)return;
+    if(response.writableEnded||response.destroyed)return;
     if(response.headersSent){response.destroy();return;}
     sendJson(response,503,{ok:false,code:'service_unavailable'});
   });
